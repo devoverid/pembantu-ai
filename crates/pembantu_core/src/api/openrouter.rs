@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use reqwest;
 use crate::{bot::{Bot}, error::PembantuError};
 use serde::{Serialize, Deserialize};
+
+#[derive(Clone)]
 pub struct OpenRouterAPI {
     api_key: String,
     client: reqwest::Client
@@ -76,8 +78,7 @@ impl Bot for OpenRouterAPI {
                 println!("error {:?}", f);
                 f
             })?;
-        println!("{:?}",response);
-        // response.choices.message.content.unwrap_or("".into())
         Ok(response.choices[0].message.content.clone().unwrap())
     }
+    
 }

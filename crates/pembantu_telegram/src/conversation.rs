@@ -1,31 +1,67 @@
-use pembantu_core::bot::BotKind;
-use teloxide::{requests::ResponseResult, types::Message, Bot};
+use pembantu_core::{api::openrouter::OpenRouterAPI, bot::{BotKind, Bot}, error::PembantuError};
+use teloxide::{requests::{Request, Requester, ResponseResult}, types::{ChatKind, MediaKind, Message, MessageKind}};
 use crate::command::Command;
-use std::env;
+use std::{borrow::Borrow, env};
 
+#[derive(Clone)]
 pub struct Conversation {
-    api_key: String
+    bot: Box<dyn Bot>
 }
-
 impl Conversation {
     pub fn new(bot_kind: BotKind) -> Self {
         Self {
-            api_key: match bot_kind {
-                BotKind::OpenRouter(api_key) => api_key
-            }
+            bot: bot_kind.create_bot_instance()
         }
     }
 
-    pub async fn reply_command(&self, bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+    pub async fn reply_command(&self, bot: teloxide::Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+        log::info!("Replying to command");
         match cmd {
+            Command::Help => {
+                bot.send_message(msg.chat.id, "Bantuan: ketik /ask untuk bertanya").await?;
+            },
             Command::Ask => {
-                Ok(())
+
+                // Get the reply from AI
+                match msg.kind {
+                    MessageKind::Common(common) => {
+                        if let MediaKind::Text(text) = common.media_kind {
+                            let response = self.bot.generate(text.text)
+                                .await
+                                .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
+
+                            // Send the response from AI to user
+                            bot.send_message(msg.chat.id, response).await?;
+                        }
+                    }
+                    _ => {
+                        log::info!("Unimplemented: {:?}", msg.kind);
+                        unimplemented!()
+                    }
+                }
+
             }
         }
+        Ok(())
     }
 
-    pub async fn reply_message(&self) {
-        
+    pub async fn reply_message(&self, bot: teloxide::Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+
+        // Get the reply from AI
+        match msg.kind {
+            MessageKind::Common(common) => {
+                if let MediaKind::Text(text) = common.media_kind {
+                    let response = self.bot.generate(text.text)
+                        .await
+                        .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
+
+                    // Send the response from AI to user
+                    bot.send_message(msg.chat.id, response).await?;
+                }
+            }
+            _ => unimplemented!()
+        }
+        Ok(())
     }
 }
 

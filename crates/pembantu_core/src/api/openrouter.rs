@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use reqwest;
-use crate::bot::{Bot};
+use crate::{bot::{Bot}, error::PembantuError};
 use serde::{Serialize, Deserialize};
 pub struct OpenRouterAPI {
     api_key: String,
@@ -28,46 +28,33 @@ struct CompletionsRequest {
 
 
 #[derive(Deserialize, Debug)]
-struct CompletionsResponse {
+pub struct CompletionsResponse {
     pub id: String,
-    pub choices: NonStreamingChoice,
+    pub choices: Vec<NonStreamingChoice>,
     pub created: i32,
     pub model: String,
     pub object: String
 }
 
 
-#[derive(Deserialize, Debug)]
-struct ResponseMessage {
+#[derive(Deserialize, Debug, Clone)]
+pub struct ResponseMessage {
     pub content: Option<String>,
     pub role: String,
-    pub tool_calls: Option<Vec<ToolCall>>,
-    pub function_call: Option<Vec<FunctionCall>>
 }
 
 
 #[derive(Deserialize, Debug)]
-struct NonStreamingChoice {
+pub struct NonStreamingChoice {
     pub finish_reason: Option<String>, // Depends on the model. pub Ex: 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'function_call'
     pub message: ResponseMessage
 }
 
 
-#[derive(Deserialize, Debug)]
-struct FunctionCall {
-    name: String,
-    arguments: String,
-}
-  
-#[derive(Deserialize, Debug)]
-struct ToolCall {
-    id: String,
-    function: FunctionCall
-}
 
 #[async_trait]
 impl Bot for OpenRouterAPI {
-    async fn generate(&self, message: String) -> String {
+    async fn generate(&self, message: String) -> Result<String, PembantuError> {
         let body = CompletionsRequest {
             messages: vec![
                 Message {
@@ -81,16 +68,16 @@ impl Bot for OpenRouterAPI {
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
-            .await
-            .unwrap()
+            .await?
             .json::<CompletionsResponse>()
+            // .text()
             .await
             .map_err(|f| {
                 println!("error {:?}", f);
                 f
-            });
+            })?;
         println!("{:?}",response);
         // response.choices.message.content.unwrap_or("".into())
-        "".into()
+        Ok(response.choices[0].message.content.clone().unwrap())
     }
 }

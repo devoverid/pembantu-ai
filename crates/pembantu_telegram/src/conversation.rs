@@ -34,16 +34,46 @@ impl Conversation {
 mod tests {
     use std::env;
     use pembantu_core::bot::Bot;
-    use pembantu_core::api::openrouter::OpenRouterAPI;
+    use pembantu_core::api::openrouter::{CompletionsResponse, OpenRouterAPI};
     use dotenv::dotenv;
+
     #[actix_rt::test]
     async fn test_openrouter() {
         dotenv().ok();
 
-        let mut api_key = env::var("OPENROUTER_API").unwrap();
-        let mut api = OpenRouterAPI::new(api_key);
+        let api_key = env::var("OPENROUTER_API").unwrap();
+        let api = OpenRouterAPI::new(api_key);
         
         let result = api.generate("Hi, how are you?".into()).await;
-        println!("{}", result)
+        assert_eq!(result.is_ok(), true)
     }
+
+
+    #[actix_rt::test]
+    async fn test_decode() {
+        let msg: &str = r#"{
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "I'm just a computer program, so I don't have feelings. But I'm here and ready to help answer your questions to the best of my ability! How can I assist you today?"
+                    },
+                    "finish_reason": "stop"
+                }
+            ],
+            "model": "mistralai/mistral-medium",
+            "usage": {
+                "prompt_tokens": 12,
+                "total_tokens": 54,
+                "completion_tokens": 42
+            },
+            "id": "gen-xasrtrast",
+            "object": "chat.completion",
+            "created": 1706494166
+        }"#;
+
+        let msg = serde_json::from_str::<CompletionsResponse>(msg);
+        assert_eq!(msg.is_ok(), true)
+    }
+
 }

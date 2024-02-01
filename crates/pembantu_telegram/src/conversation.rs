@@ -1,7 +1,7 @@
-use pembantu_core::{api::openrouter::OpenRouterAPI, bot::{BotKind, Bot}, error::PembantuError};
-use teloxide::{requests::{Request, Requester, ResponseResult}, types::{ChatKind, MediaKind, Message, MessageKind}};
+use pembantu_core::{bot::{BotKind, Bot}};
+use teloxide::{payloads::{SendMessage, SendMessageSetters}, requests::{JsonRequest, Requester, ResponseResult}, types::{MediaKind, Message, MessageKind}};
 use crate::command::Command;
-use std::{borrow::Borrow, env};
+
 
 #[derive(Clone)]
 pub struct Conversation {
@@ -55,12 +55,19 @@ impl Conversation {
         match msg.kind {
             MessageKind::Common(common) => {
                 if let MediaKind::Text(text) = common.media_kind {
+                    // Send 'loading' message to user
+                    let new_msg = SendMessage::new(msg.chat.id, "*Sedang berpikir* ⏳")
+                        .reply_to_message_id(msg.id);
+                    let sent_msg = JsonRequest::new(bot.clone(), new_msg).await?;
+
                     let response = self.bot.generate(text.text)
                         .await
                         .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
 
                     // Send the response from AI to user
-                    bot.send_message(msg.chat.id, response).await?;
+                    bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
+
+                    
                 }
             }
             _ => unimplemented!()
@@ -85,7 +92,7 @@ mod tests {
         let api = OpenRouterAPI::new(api_key);
         
         let result = api.generate("Hi, how are you?".into()).await;
-        assert_eq!(result.is_ok(), true)
+        assert!(result.is_ok())
     }
 
 
@@ -113,7 +120,7 @@ mod tests {
         }"#;
 
         let msg = serde_json::from_str::<CompletionsResponse>(msg);
-        assert_eq!(msg.is_ok(), true)
+        assert!(msg.is_ok())
     }
 
 }

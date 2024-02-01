@@ -2,11 +2,8 @@ use command::Command;
 use pembantu_core::bot::BotKind;
 use teloxide::dispatching::UpdateFilterExt;
 use teloxide::prelude::*;
-use teloxide::types::*;
 use dotenv::dotenv;
 use std::env;
-use std::rc::Rc;
-use std::sync::Arc;
 
 pub mod media_kind;
 pub mod command;

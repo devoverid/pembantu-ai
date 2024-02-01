@@ -26,12 +26,16 @@ impl Conversation {
                 match msg.kind {
                     MessageKind::Common(common) => {
                         if let MediaKind::Text(text) = common.media_kind {
+
+                            // Send 'loading' message to user
+                            let sent_msg = bot.send_message(msg.chat.id, "*Sedang berpikir* ⏳").await?;
+
                             let response = self.bot.generate(text.text)
                                 .await
                                 .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
 
-                            // Send the response from AI to user
-                            bot.send_message(msg.chat.id, response).await?;
+                            // Update the message when the AI has responded
+                            bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
                         }
                     }
                     _ => {

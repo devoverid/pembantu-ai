@@ -1,41 +1,56 @@
-use pembantu_core::{bot::{BotKind, Bot}};
-use teloxide::{payloads::{SendMessage, SendMessageSetters}, requests::{JsonRequest, Requester, ResponseResult}, types::{MediaKind, Message, MessageKind}};
 use crate::command::Command;
-
+use pembantu_core::bot::{Bot, BotKind};
+use teloxide::{
+    payloads::{SendMessage, SendMessageSetters},
+    requests::{JsonRequest, Requester, ResponseResult},
+    types::{MediaKind, Message, MessageKind},
+};
 
 #[derive(Clone)]
 pub struct Conversation {
-    bot: Box<dyn Bot>
+    bot: Box<dyn Bot>,
 }
 impl Conversation {
     pub fn new(bot_kind: BotKind) -> Self {
         Self {
-            bot: bot_kind.create_bot_instance()
+            bot: bot_kind.create_bot_instance(),
         }
     }
 
-    pub async fn reply_command(&self, bot: teloxide::Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+    pub async fn reply_command(
+        &self,
+        bot: teloxide::Bot,
+        msg: Message,
+        cmd: Command,
+    ) -> ResponseResult<()> {
         log::info!("Replying to command");
         match cmd {
+            Command::Start => {
+                bot.send_message(
+                    msg.chat.id,
+                    "Use '/ask {question}' to get the answer from AI.",
+                )
+                .await?;
+            }
             Command::Help => {
-                bot.send_message(msg.chat.id, "Bantuan: ketik /ask untuk bertanya").await?;
-            },
+                bot.send_message(msg.chat.id, "Help: type '/ask {question}' for asking to AI")
+                    .await?;
+            }
             Command::Ask => {
-
                 // Get the reply from AI
                 match msg.kind {
                     MessageKind::Common(common) => {
                         if let MediaKind::Text(text) = common.media_kind {
-
                             // Send 'loading' message to user
-                            let sent_msg = bot.send_message(msg.chat.id, "*Sedang berpikir* ⏳").await?;
+                            let sent_msg = bot.send_message(msg.chat.id, "*Thinking* ⏳").await?;
 
                             let response = self.bot.generate(text.text)
                                 .await
                                 .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
 
                             // Update the message when the AI has responded
-                            bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
+                            bot.edit_message_text(msg.chat.id, sent_msg.id, response)
+                                .await?;
                         }
                     }
                     _ => {
@@ -43,21 +58,23 @@ impl Conversation {
                         unimplemented!()
                     }
                 }
-
             }
         }
         Ok(())
     }
 
-    pub async fn reply_message(&self, bot: teloxide::Bot, msg: Message) -> Result<(), teloxide::RequestError> {
-
+    pub async fn reply_message(
+        &self,
+        bot: teloxide::Bot,
+        msg: Message,
+    ) -> Result<(), teloxide::RequestError> {
         // Get the reply from AI
         match msg.kind {
             MessageKind::Common(common) => {
                 if let MediaKind::Text(text) = common.media_kind {
                     // Send 'loading' message to user
-                    let new_msg = SendMessage::new(msg.chat.id, "*Sedang berpikir* ⏳")
-                        .reply_to_message_id(msg.id);
+                    let new_msg =
+                        SendMessage::new(msg.chat.id, "*Thinking* ⏳").reply_to_message_id(msg.id);
                     let sent_msg = JsonRequest::new(bot.clone(), new_msg).await?;
 
                     let response = self.bot.generate(text.text)
@@ -65,24 +82,22 @@ impl Conversation {
                         .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
 
                     // Send the response from AI to user
-                    bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
-
-                    
+                    bot.edit_message_text(msg.chat.id, sent_msg.id, response)
+                        .await?;
                 }
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
         Ok(())
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::env;
-    use pembantu_core::bot::Bot;
-    use pembantu_core::api::openrouter::{CompletionsResponse, OpenRouterAPI};
     use dotenv::dotenv;
+    use pembantu_core::api::openrouter::{CompletionsResponse, OpenRouterAPI};
+    use pembantu_core::bot::Bot;
+    use std::env;
 
     #[actix_rt::test]
     async fn test_openrouter() {
@@ -90,11 +105,10 @@ mod tests {
 
         let api_key = env::var("OPENROUTER_API").unwrap();
         let api = OpenRouterAPI::new(api_key);
-        
+
         let result = api.generate("Hi, how are you?".into()).await;
         assert!(result.is_ok())
     }
-
 
     #[actix_rt::test]
     async fn test_decode() {
@@ -122,5 +136,4 @@ mod tests {
         let msg = serde_json::from_str::<CompletionsResponse>(msg);
         assert!(msg.is_ok())
     }
-
 }

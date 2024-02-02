@@ -1,10 +1,15 @@
 use teloxide::utils::command::BotCommands;
 
 #[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "These commands are supported:")]
+#[command(
+    rename_rule = "lowercase",
+    description = "These commands are supported:"
+)]
 pub enum Command {
-    #[command(description = "Tanya apapun ke pembantu")]
+    #[command(description = "Start using this BOT")]
+    Start,
+    #[command(description = "Ask anything to pembantu")]
     Ask,
-    #[command(description = "Bantuan menggunakan bot ini")]
+    #[command(description = "Show help message")]
     Help,
 }

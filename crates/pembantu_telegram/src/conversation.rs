@@ -24,9 +24,7 @@ impl Conversation {
         // Send 'loading' message to user
         let sent_msg = bot.send_message(chat_id, "*Sedang berpikir* ⏳").await?;
 
-        let response = self.bot.generate(text.text)
-            .await
-            .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
+        let response = self.generate_message(text.text).await;
 
         // Update the message when the AI has responded
         bot.edit_message_text(chat_id, sent_msg.id, response).await?;

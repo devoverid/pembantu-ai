@@ -20,7 +20,8 @@ impl OpenRouterAPI {
 #[derive(Serialize)] 
 struct Message {
     role: String,
-    content: String
+    content: String,
+    prompt: String
 }
 
 #[derive(Serialize)]
@@ -61,6 +62,9 @@ impl Bot for OpenRouterAPI {
             messages: vec![
                 Message {
                     content: message,
+                    prompt: "You are a helpful AI assistant that can help people answering their questions. 
+                            If you are given an instruction or question in Bahasa Indonesia, reply it only in Bahasa Indonesia. 
+                            If you are given an instruction or question in another language, reply it in that corresponding language.".into(),
                     role: "user".into()
                 }
             ]

@@ -1,5 +1,5 @@
 use pembantu_core::{bot::{BotKind, Bot}};
-use teloxide::{payloads::{SendMessage, SendMessageSetters}, requests::{JsonRequest, Requester, ResponseResult}, types::{MediaKind, Message, MessageKind}};
+use teloxide::{payloads::{SendMessage, SendMessageSetters}, requests::{JsonRequest, Requester, ResponseResult}, types::{ChatId, MediaKind, MediaText, Message, MessageKind}};
 use crate::command::Command;
 
 
@@ -14,6 +14,26 @@ impl Conversation {
         }
     }
 
+    pub async fn generate_message(&self, text: String) -> String {
+        self.bot.generate(text)
+            .await
+            .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into())
+    }
+
+    pub async fn generate_and_send_message(&self, bot: teloxide::Bot, chat_id: ChatId, text: MediaText) -> ResponseResult<()> {
+        // Send 'loading' message to user
+        let sent_msg = bot.send_message(chat_id, "*Sedang berpikir* ⏳").await?;
+
+        let response = self.bot.generate(text.text)
+            .await
+            .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
+
+        // Update the message when the AI has responded
+        bot.edit_message_text(chat_id, sent_msg.id, response).await?;
+
+        Ok(())
+    }
+
     pub async fn reply_command(&self, bot: teloxide::Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
         log::info!("Replying to command");
         match cmd {
@@ -26,16 +46,7 @@ impl Conversation {
                 match msg.kind {
                     MessageKind::Common(common) => {
                         if let MediaKind::Text(text) = common.media_kind {
-
-                            // Send 'loading' message to user
-                            let sent_msg = bot.send_message(msg.chat.id, "*Sedang berpikir* ⏳").await?;
-
-                            let response = self.bot.generate(text.text)
-                                .await
-                                .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
-
-                            // Update the message when the AI has responded
-                            bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
+                            self.generate_and_send_message(bot, msg.chat.id, text).await?;
                         }
                     }
                     _ => {
@@ -59,15 +70,10 @@ impl Conversation {
                     let new_msg = SendMessage::new(msg.chat.id, "*Sedang berpikir* ⏳")
                         .reply_to_message_id(msg.id);
                     let sent_msg = JsonRequest::new(bot.clone(), new_msg).await?;
-
-                    let response = self.bot.generate(text.text)
-                        .await
-                        .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into());
+                    let response = self.generate_message(text.text).await;
 
                     // Send the response from AI to user
                     bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
-
-                    
                 }
             }
             _ => unimplemented!()

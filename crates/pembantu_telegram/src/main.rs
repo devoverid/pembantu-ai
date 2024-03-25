@@ -20,15 +20,24 @@ async fn answer_command(bot: teloxide::Bot, msg: Message, cmd: Command) -> Respo
     Ok(())
 }
 async fn answer_replied_message(bot: teloxide::Bot, msg: Message) -> ResponseResult<()> {
+    let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").unwrap());
+    let convo = conversation::Conversation::new(bot_kind);
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
-    log::info!("Replying to a reply");
+    log::info!("Replying to a normal message");
+
     if let Some(reply_to_msg) =  msg.reply_to_message() {
         if let Some(user) = reply_to_msg.from() {
             if user.username.as_ref().unwrap() == &bot_username {
-                let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").unwrap());
-                let convo = conversation::Conversation::new(bot_kind);
                 convo.reply_message(bot, msg).await?;
             }
+        } 
+    }
+    else if msg.text().is_some() {
+        let text = msg.text().unwrap();
+
+        if text.starts_with("AI,") {
+            // replying to private chat
+            convo.reply_message(bot, msg).await?;
         }
     }
 

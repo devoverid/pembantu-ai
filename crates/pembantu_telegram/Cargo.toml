@@ -5,6 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+edition = "2021"
+name = "pembantu_telegram"
+path = "src/main.rs"
+
 [dependencies]
 teloxide = { version = "0.12", features = ["macros"] }
 log = "0.4"

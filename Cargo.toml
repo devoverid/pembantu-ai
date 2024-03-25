@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "crates/pembantu_core",
     "crates/pembantu_telegram",
+    "crates/pembantu_core",
     "crates/pembantu_whatsapp",
 ]

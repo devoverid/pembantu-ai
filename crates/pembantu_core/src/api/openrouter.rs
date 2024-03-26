@@ -62,9 +62,7 @@ impl Bot for OpenRouterAPI {
             messages: vec![
                 Message {
                     content: message,
-                    prompt: "You are a helpful AI assistant that can help people answering their questions. 
-                            If you are given an instruction or question in Bahasa Indonesia, reply it only in Bahasa Indonesia. 
-                            If you are given an instruction or question in another language, reply it in that corresponding language.".into(),
+                    prompt: "Kamu hanya dapat membalas dengan Bahasa Indonesia. Jangan memberikan terjemahan tambahan. Hanya membalas dengan bahasa Inggris jika diinstruksikan dengan bahasa inggris.".into(),
                     role: "user".into()
                 }
             ]

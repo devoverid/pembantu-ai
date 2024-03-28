@@ -4,6 +4,13 @@
   <img align="center" src="https://github.com/devoverid/pembantu-ai/assets/45036724/f6a0e236-f816-4402-91de-7ab467d43573">
 </p>
 
+## TODO
+
+- [x] Telegram bot
+- [ ] Run Bahasa Indonesia models
+- [ ] Learn context
+- [ ] Add Whatsapp port
+
 ## Run locally
 
 1. Clone the repository

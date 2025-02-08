@@ -14,16 +14,18 @@ pub mod updates;
 async fn answer_command(bot: teloxide::Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
     log::info!("Replying to command");
     let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").unwrap());
-    let convo = conversation::Conversation::new(bot_kind);
+    let model = env::var("AI_MODEL").unwrap();
+    let convo = conversation::Conversation::new(bot_kind, model);
     convo.reply_command(bot, msg, cmd).await?;
 
     Ok(())
 }
 async fn answer_replied_message(bot: teloxide::Bot, msg: Message) -> ResponseResult<()> {
     let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").unwrap());
-    let convo = conversation::Conversation::new(bot_kind);
+    let model = env::var("AI_MODEL").unwrap();
+    let convo = conversation::Conversation::new(bot_kind, model);
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
-    log::info!("Replying to a normal message");
+    log::info!("Received message");
 
     if let Some(reply_to_msg) =  msg.reply_to_message() {
         if let Some(user) = reply_to_msg.from() {

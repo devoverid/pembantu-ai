@@ -10,9 +10,11 @@ pub enum BotKind {
 }
 
 impl BotKind {
-    pub fn create_bot_instance(&self) -> Box<dyn Bot> {
+    pub fn create_bot_instance(&self, model_name: String) -> Box<dyn Bot> {
         match self {
-            BotKind::OpenRouter(api_key) => Box::new(OpenRouterAPI::new(api_key.deref().to_string()))
+            BotKind::OpenRouter(api_key) => Box::new(
+                OpenRouterAPI::new(api_key.deref().to_string(), model_name)
+            )
         }
     }
 }

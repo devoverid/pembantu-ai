@@ -8,9 +8,9 @@ pub struct Conversation {
     bot: Box<dyn Bot>
 }
 impl Conversation {
-    pub fn new(bot_kind: BotKind) -> Self {
+    pub fn new(bot_kind: BotKind, model_name: String) -> Self {
         Self {
-            bot: bot_kind.create_bot_instance()
+            bot: bot_kind.create_bot_instance(model_name)
         }
     }
 
@@ -93,7 +93,7 @@ mod tests {
         dotenv().ok();
 
         let api_key = env::var("OPENROUTER_API").unwrap();
-        let api = OpenRouterAPI::new(api_key);
+        let api = OpenRouterAPI::new(api_key, "google/gemini-2.0-flash-001".into());
         
         let result = api.generate("Hi, how are you?".into()).await;
         assert!(result.is_ok())

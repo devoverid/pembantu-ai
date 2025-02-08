@@ -1,19 +1,20 @@
 use async_trait::async_trait;
 use reqwest;
-use crate::{bot::{Bot}, error::PembantuError};
+use crate::{bot::Bot, error::PembantuError, prompt};
 use serde::{Serialize, Deserialize};
-
 #[derive(Clone)]
 pub struct OpenRouterAPI {
     api_key: String,
-    client: reqwest::Client
+    client: reqwest::Client,
+    model: String,
 }
 
 impl OpenRouterAPI {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, model: String) -> Self {
         Self {
             api_key,
-            client: reqwest::Client::new()
+            client: reqwest::Client::new(),
+            model
         }
     }
 }
@@ -21,12 +22,12 @@ impl OpenRouterAPI {
 struct Message {
     role: String,
     content: String,
-    prompt: String
 }
 
 #[derive(Serialize)]
 struct CompletionsRequest {
     messages: Vec<Message>,
+    model: String
 }
 
 
@@ -36,7 +37,6 @@ pub struct CompletionsResponse {
     pub choices: Vec<NonStreamingChoice>,
     pub created: i32,
     pub model: String,
-    pub object: String
 }
 
 
@@ -46,23 +46,24 @@ pub struct ResponseMessage {
     pub role: String,
 }
 
-
 #[derive(Deserialize, Debug)]
 pub struct NonStreamingChoice {
     pub finish_reason: Option<String>, // Depends on the model. pub Ex: 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'function_call'
     pub message: ResponseMessage
 }
 
-
-
 #[async_trait]
 impl Bot for OpenRouterAPI {
     async fn generate(&self, message: String) -> Result<String, PembantuError> {
         let body = CompletionsRequest {
+            model: self.model.clone(),
             messages: vec![
                 Message {
+                    content: prompt::get_prompt(),
+                    role: "system".into()
+                },
+                Message {
                     content: message,
-                    prompt: "Kamu hanya dapat membalas dengan Bahasa Indonesia. Jangan memberikan terjemahan tambahan. Hanya membalas dengan bahasa Inggris jika diinstruksikan dengan bahasa inggris.".into(),
                     role: "user".into()
                 }
             ]
@@ -72,15 +73,13 @@ impl Bot for OpenRouterAPI {
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
-            .await?
-            .json::<CompletionsResponse>()
-            // .text()
-            .await
-            .map_err(|f| {
-                println!("error {:?}", f);
-                f
-            })?;
-        Ok(response.choices[0].message.content.clone().unwrap())
+            .await?;
+        
+        // let response_text = response.text().await?;
+        // dbg!(response_text);
+
+        let response_json = response.json::<CompletionsResponse>().await?;
+        Ok(response_json.choices[0].message.content.clone().unwrap())
     }
     
 }

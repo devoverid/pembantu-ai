@@ -1,4 +1,4 @@
-FROM rust:1.80-bookworm as builder
+FROM --platform=linux/amd64 rust:1.80-bookworm as builder
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY . .
 
 RUN cargo build --release
 
-FROM rust:1.80-bookworm as runtime
+FROM --platform=linux/amd64 rust:1.80-bookworm as runtime
 
 COPY --from=builder /app/target/release/pembantu_telegram .
 

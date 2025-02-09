@@ -39,7 +39,8 @@ impl Handler {
         else if msg.text().is_some() {
             let text = msg.text().unwrap();
             
-            if text.starts_with("AI,") {
+            if text.starts_with("AI,") ||
+                msg.chat.is_private() {
                 // replying to private chat
                 let result = self.conversation.reply_message(self.bot.clone(), msg).await;
                 return result

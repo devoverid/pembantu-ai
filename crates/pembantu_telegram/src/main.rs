@@ -60,22 +60,20 @@ async fn main() {
     
     let bot = teloxide::Bot::from_env();
     
-    let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").unwrap());
-    let model = env::var("AI_MODEL").unwrap();
+    let bot_kind = BotKind::OpenRouter(env::var("OPENROUTER_API").expect("OPENROUTER_API should be set"));
+    let model = env::var("AI_MODEL").expect("AI_MODEL should be set");
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
     let conversation = conversation::Conversation::new(bot_kind, model);
 
-    let handler = Handler {
+    let handler = Arc::new(Box::new(Handler {
         conversation,
         bot: bot.clone(),
         bot_username
-    };
-
-    let handler_arc = handler.clone();
-    let handler_arc2 = handler_arc.clone();
+    }));
+    let handler_arc2 = handler.clone();
     let handler = dptree::entry()
         .branch(Update::filter_message().filter_command::<command::Command>().endpoint(move |msg: Message, cmd: Command| {
-            let handler = handler_arc.clone();
+            let handler = handler.clone();
             async move {
                 handler.answer_command(msg.clone(), cmd.clone()).await
             }
@@ -86,6 +84,6 @@ async fn main() {
                 handler.answer_replied_message(msg).await 
             }
         }));
-    
+
     Dispatcher::builder(bot, handler).enable_ctrlc_handler().build().dispatch().await;
 }

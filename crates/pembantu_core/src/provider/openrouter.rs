@@ -1,7 +1,10 @@
+
 use async_trait::async_trait;
+use dyn_clone::DynClone;
 use reqwest;
-use crate::{bot::Bot, error::PembantuError, prompt};
+use crate::{provider::TextGenerationProvider, error::PembantuError, prompt};
 use serde::{Serialize, Deserialize};
+
 #[derive(Clone)]
 pub struct OpenRouterAPI {
     api_key: String,
@@ -53,7 +56,7 @@ pub struct NonStreamingChoice {
 }
 
 #[async_trait]
-impl Bot for OpenRouterAPI {
+impl TextGenerationProvider for OpenRouterAPI {
     async fn generate(&self, message: String) -> Result<String, PembantuError> {
         let body = CompletionsRequest {
             model: self.model.clone(),

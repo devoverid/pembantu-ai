@@ -11,7 +11,7 @@ name = "pembantu_telegram"
 path = "src/main.rs"
 
 [dependencies]
-teloxide = { version = "0.12", features = ["macros"] }
+teloxide = { version = "0.15", features = ["macros"] }
 log = "0.4"
 pretty_env_logger = "0.4"
 tokio = { version =  "1.8", features = ["rt-multi-thread", "macros"] }
@@ -19,3 +19,5 @@ dotenv = "0.15.0"
 actix-rt = "2.9.0"
 pembantu_core = { path = "../pembantu_core" }
 serde_json = "1.0.112"
+envy = "0.4.2"
+serde = "1.0.219"

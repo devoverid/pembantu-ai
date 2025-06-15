@@ -10,6 +10,7 @@ impl Bot {
         let text_provider = match text_provider {
             Some(text_provider) => match text_provider {
                 TextProvider::OpenRouter(api_key, model_name) => Some(Box::new(OpenRouterAPI::new(api_key, model_name)) as Box<dyn TextGenerationProvider>),
+                TextProvider::Gemini(api_key, model_name) => Some(Box::new(GeminiAPI::new(api_key, model_name)) as Box<dyn TextGenerationProvider>),
             },
             None => None
         };

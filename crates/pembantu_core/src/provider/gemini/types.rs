@@ -31,7 +31,7 @@ pub struct GenerateContent {
 
 #[derive(Serialize)]
 pub struct Content {
-    pub part: Vec<Part>,
+    pub parts: Vec<Part>,
     pub role: Role
 }
 
@@ -59,23 +59,52 @@ pub enum Role {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GenerateContentResponse {
-    pub candidates: Candidate,
+    pub candidates: Vec<Candidate>,
+    #[serde(rename = "usageMetadata")]
+    pub usage_metadata: UsageMetadata,
+    #[serde(rename = "modelVersion")]
+    pub model_version: String,
+    #[serde(rename = "responseId")]
+    pub response_id: String,
 }
 
 #[derive(Deserialize)]
 pub struct Candidate {
     pub content: ContentResponse,
-    #[serde(rename = "tokenCount")]
-    pub token_count: String,
+    #[serde(rename = "finishReason")]
+    pub finish_reason: String,
+    #[serde(rename = "avgLogprobs")]
+    pub avg_logprobs: f64,
 }
 
 #[derive(Deserialize)]
 pub struct ContentResponse {
-    pub parts: Vec<ContentPart>
+    pub parts: Vec<ContentPart>,
+    pub role: String,
 }
 
 #[derive(Deserialize)]
 pub struct ContentPart {
-    pub thought: bool,
-    pub data: String // assume the content is text
+    pub text: String,
+}
+
+#[derive(Deserialize)]
+pub struct UsageMetadata {
+    #[serde(rename = "promptTokenCount")]
+    pub prompt_token_count: i32,
+    #[serde(rename = "candidatesTokenCount")]
+    pub candidates_token_count: i32,
+    #[serde(rename = "totalTokenCount")]
+    pub total_token_count: i32,
+    #[serde(rename = "promptTokensDetails")]
+    pub prompt_tokens_details: Vec<TokenDetail>,
+    #[serde(rename = "candidatesTokensDetails")]
+    pub candidates_tokens_details: Vec<TokenDetail>,
+}
+
+#[derive(Deserialize)]
+pub struct TokenDetail {
+    pub modality: String,
+    #[serde(rename = "tokenCount")]
+    pub token_count: i32,
 }

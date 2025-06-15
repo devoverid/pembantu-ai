@@ -2,7 +2,6 @@
 use async_trait::async_trait;
 use crate::{error::PembantuError, prompt, provider::{openrouter::types::{self, CompletionsResponse, Message, OpenRouterAPI, Role}, TextGenerationProvider}};
 
-
 #[async_trait]
 impl TextGenerationProvider for OpenRouterAPI {
     async fn generate(&self, message: String) -> Result<String, PembantuError> {
@@ -26,7 +25,9 @@ impl TextGenerationProvider for OpenRouterAPI {
             .send()
             .await?;
 
-        let response_json = response.json::<CompletionsResponse>().await?;
+        let response_str = response.text().await?;
+        let response_json: CompletionsResponse = serde_json::from_str::<CompletionsResponse>(&response_str).unwrap();
+        
         Ok(response_json.choices[0].message.content.clone().unwrap())
     }
     

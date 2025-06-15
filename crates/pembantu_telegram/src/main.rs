@@ -65,14 +65,15 @@ async fn main() {
     let text_provider = match env.provider_text_generation {
         None => None,
         Some(s) => Some(match s.as_str() {
-            "openrouter" => TextProvider::OpenRouter(env.openrouter_api, s),
+            "openrouter" => TextProvider::OpenRouter(env.openrouter_api, env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
+            "gemini" => TextProvider::Gemini(env.gemini_api_key.clone(), env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
             _ => panic!("Text generation model not supported. Available options: openrouter, gemini")
         })
     };
     let image_provider = match env.provider_image_generation {
         None => None,
         Some(s) => Some(match s.as_str() {
-            "gemini" => ImageProvider::Gemini(env.gemini_api_key, s),
+            "gemini" => ImageProvider::Gemini(env.gemini_api_key, env.model_image_generation.expect("MODEL_IMAGE_GENERATION is empty")),
             _ => panic!("Image generation model not supported. Available options: gemini")
         })
     };

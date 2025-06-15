@@ -12,13 +12,13 @@ impl TextGenerationProvider for GeminiAPI {
                 contents: vec![
                     Content {
                         role: Role::Model,
-                        part: vec![
+                        parts: vec![
                             Part::text(&prompt::get_prompt())
                         ]
                     },
                     Content {
                         role: Role::User,
-                        part: vec![
+                        parts: vec![
                             Part::text(&message)
                         ]
                     },
@@ -31,9 +31,11 @@ impl TextGenerationProvider for GeminiAPI {
             .json(&req.body)
             .send()
             .await?;
+        
+        let response_str = response.text().await?;
+        let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
 
-        let response_json = response.json::<GenerateContentResponse>().await?;
-        Ok(response_json.candidates.content.parts[0].data.clone())
+        Ok(response_json.candidates[0].content.parts[0].text.clone())
     }
 }
 

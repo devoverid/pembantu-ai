@@ -8,6 +8,7 @@ pub mod gemini;
 pub enum TextProvider {
     // api_key, model_name
     OpenRouter(String, String),
+    Gemini(String, String),
 }
 
 pub enum ImageProvider {

@@ -3,7 +3,9 @@ use reqwest;
 
 #[derive(Error, Debug)]
 pub enum PembantuError {
-    RequestError(#[from] reqwest::Error)
+    RequestError(#[from] reqwest::Error),
+    ProviderNotImplemented,
+    GenerateError(String)
 }
 
 impl std::fmt::Display for PembantuError {

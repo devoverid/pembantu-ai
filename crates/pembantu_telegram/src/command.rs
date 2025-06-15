@@ -1,3 +1,5 @@
+use std::fmt;
+
 use teloxide::utils::command::BotCommands;
 
 #[derive(BotCommands, Clone)]
@@ -7,4 +9,14 @@ pub enum Command {
     Ask,
     #[command(description = "Bantuan menggunakan bot ini")]
     Help,
+}
+
+
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Command::Ask => write!(f, "ask"),
+            Command::Help => write!(f, "help"),
+        }
+    }
 }

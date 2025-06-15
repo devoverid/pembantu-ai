@@ -1,4 +1,4 @@
-use crate::{error::PembantuError, provider::{gemini::GeminiAPI, openrouter::OpenRouterAPI, ImageGenerationProvider, ImageProvider, TextGenerationProvider, TextProvider}};
+use crate::{error::PembantuError, provider::{gemini::types::GeminiAPI, openrouter::types::OpenRouterAPI, ImageGenerationProvider, ImageProvider, TextGenerationProvider, TextProvider}};
 
 pub struct Bot {
     text_provider: Option<Box<dyn TextGenerationProvider>>,

@@ -22,13 +22,15 @@ struct Handler {
 
 impl Handler {
     async fn answer_command(&self, msg: Message, cmd: Command) -> ResponseResult<()> {
-        log::info!("Replying to command");
+        let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into());
+        log::info!("Replying to command /{} from {}", cmd, from);
         let result = self.conversation.reply_command(msg, cmd).await;
     
         result
     }
     async fn answer_replied_message(&self, msg: Message) -> ResponseResult<()> {
-        log::info!("Received message");
+        let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into());
+        log::info!("Replying to message from {}", from);
     
         if let Some(reply_to_msg) =  msg.reply_to_message() {
             if let Some(user) = &reply_to_msg.from {
@@ -58,16 +60,16 @@ async fn main() {
     dotenv().ok();
     pretty_env_logger::init();
     let env = envy::from_env::<Config>().expect("Failed to parse env");
-
+    dbg!(&env);
     // init providers
-    let text_provider = match env.model_text_generation {
+    let text_provider = match env.provider_text_generation {
         None => None,
         Some(s) => Some(match s.as_str() {
-            "openrouter" => TextProvider::OpenRouter(env.openrouter_api_key, s),
+            "openrouter" => TextProvider::OpenRouter(env.openrouter_api, s),
             _ => panic!("Text generation model not supported. Available options: openrouter, gemini")
         })
     };
-    let image_provider = match env.model_image_generation {
+    let image_provider = match env.provider_image_generation {
         None => None,
         Some(s) => Some(match s.as_str() {
             "gemini" => ImageProvider::Gemini(env.gemini_api_key, s),
@@ -75,7 +77,7 @@ async fn main() {
         })
     };
 
-    
+
     let teloxide_bot = Arc::new(teloxide::Bot::from_env());
     let ai = pembantu_core::bot::Bot::new(text_provider, image_provider).unwrap();
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
@@ -94,13 +96,36 @@ async fn main() {
         .branch(Update::filter_message().filter_command::<command::Command>().endpoint(move |msg: Message, cmd: Command| {
             let handler = handler.clone();
             async move {
-                handler.answer_command(msg.clone(), cmd.clone()).await
+                let chatid = msg.chat.id.clone();
+                let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into()).clone();
+                match handler.answer_command(msg.clone(), cmd.clone()).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        log::error!(
+                            "Failed to process message from user: {:?} in chat: {}. Error: {:?}",
+                            from,
+                            chatid,
+                            e
+                        );
+                        Err(e)
+                    }
+                }
             }
         }))
-        .branch(Update::filter_message().endpoint(move |msg| {
+        .branch(Update::filter_message().endpoint(move |msg: Message| {
             let handler = handler_arc2.clone();
             async move { 
-                handler.answer_replied_message(msg).await 
+                let chatid = msg.chat.id.clone();
+                let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into()).clone();
+                handler.answer_replied_message(msg).await.map_err(|e| {
+                    log::error!(
+                        "Failed to process message from user: {:?} in chat: {}. Error: {:?}",
+                        from,
+                        chatid,
+                        e
+                    );
+                    e
+                })
             }
         }));
 

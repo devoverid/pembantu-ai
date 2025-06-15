@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use teloxide::{payloads::{SendMessage, SendMessageSetters}, requests::{JsonRequest, Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{ChatId, MediaKind, MediaText, Message, MessageKind}};
+use pembantu_core::error::PembantuError;
+use teloxide::{requests::{Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{ChatId, MediaKind, MediaText, Message, MessageKind}};
 use crate::command::Command;
 
 
@@ -16,10 +17,9 @@ impl Conversation {
         }
     }
 
-    pub async fn generate_message(&self, text: String) -> String {
+    pub async fn generate_message(&self, text: String) -> Result<String, PembantuError> {
         self.bot.generate_text(text)
             .await
-            .unwrap_or("Sorry, I am currently experiencing an error. Please contact administrator.".into())
     }
 
     pub async fn generate_and_send_message(&self,  chat_id: ChatId, text: MediaText) -> ResponseResult<()> {
@@ -27,15 +27,21 @@ impl Conversation {
         let sent_msg = self.teloxide_bot.send_message(chat_id, "*Sedang berpikir* ⏳").await?;
 
         let response = self.generate_message(text.text).await;
+        let response_str = match response {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("Error generating message. Error: {:?}", e);
+                "Sorry, I am currently experiencing an error. Please contact administrator.".into()
+            }
+        };
 
         // Update the message when the AI has responded
-        self.teloxide_bot.edit_message_text(chat_id, sent_msg.id, response).await?;
+        self.teloxide_bot.edit_message_text(chat_id, sent_msg.id, response_str).await?;
 
         Ok(())
     }
 
     pub async fn reply_command(&self, msg: Message, cmd: Command) -> ResponseResult<()> {
-        log::info!("Replying to command");
         match cmd {
             Command::Help => {
                 self.teloxide_bot.send_message(msg.chat.id, "Bantuan: ketik /ask untuk bertanya").await?;
@@ -71,9 +77,15 @@ impl Conversation {
                         .reply_to(msg.id)
                         .await?;
                     let response = self.generate_message(text.text).await;
-
+                    let response_str = match response {
+                        Ok(v) => v,
+                        Err(e) => {
+                            log::error!("Error generating message. Error: {:?}", e);
+                            "Sorry, I am currently experiencing an error. Please contact administrator.".into()
+                        }
+                    };
                     // Send the response from AI to user
-                    self.teloxide_bot.edit_message_text(msg.chat.id, sent_msg.id, response).await?;
+                    self.teloxide_bot.edit_message_text(msg.chat.id, sent_msg.id, response_str).await?;
                 }
             },
             _ => unimplemented!()
@@ -86,7 +98,7 @@ impl Conversation {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use pembantu_core::provider::{openrouter::{CompletionsResponse, OpenRouterAPI}, TextProvider};
+    use pembantu_core::provider::{openrouter::types::CompletionsResponse, TextProvider};
     use dotenv::dotenv;
 
     #[actix_rt::test]

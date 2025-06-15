@@ -5,6 +5,7 @@ use reqwest;
 pub enum PembantuError {
     RequestError(#[from] reqwest::Error),
     ProviderNotImplemented,
+    GenerateError(String)
 }
 
 impl std::fmt::Display for PembantuError {

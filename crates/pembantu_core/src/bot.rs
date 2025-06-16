@@ -33,7 +33,7 @@ impl Bot {
         }
     }
 
-    pub async fn generate_image(&self, prompt: String) -> Result<String, PembantuError> {
+    pub async fn generate_image(&self, prompt: String) -> Result<Vec<u8>, PembantuError> {
         match &self.image_provider {
             Some(provider) => provider.generate_image(prompt).await,
             None => Err(PembantuError::ProviderNotImplemented)

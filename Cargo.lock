@@ -1025,6 +1025,7 @@ version = "0.1.0"
 dependencies = [
  "actix-rt",
  "async-trait",
+ "base64 0.22.1",
  "dotenv",
  "dyn-clone",
  "reqwest 0.11.23",

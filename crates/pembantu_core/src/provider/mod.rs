@@ -23,7 +23,7 @@ pub(crate) trait TextGenerationProvider: Send + Sync + DynClone {
 
 #[async_trait]
 pub(crate) trait ImageGenerationProvider: Send + Sync {
-    async fn generate_image(&self, prompt: String) -> Result<String, PembantuError>;
+    async fn generate_image(&self, prompt: String) -> Result<Vec<u8>, PembantuError>;
 }
 
 impl Clone for Box<dyn TextGenerationProvider> {

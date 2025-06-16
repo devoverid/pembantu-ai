@@ -5,6 +5,7 @@ use reqwest;
 pub enum PembantuError {
     RequestError(#[from] reqwest::Error),
     ProviderNotImplemented,
+    Base64DecodeError,
     GenerateError(String)
 }
 

@@ -1,6 +1,5 @@
 use crate::{error::PembantuError, prompt, provider::{gemini::types::{CompletionsRequest, Content, GeminiAPI, GenerateContent, GenerateContentResponse, GenerationConfig, Modality, Part, Role}, ImageGenerationProvider, TextGenerationProvider}};
 use async_trait::async_trait;
-use serde::Serialize;
 use base64::prelude::*;
 
 #[async_trait]

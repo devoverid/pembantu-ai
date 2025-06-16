@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
 use pembantu_core::error::PembantuError;
-use teloxide::{requests::{Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{ChatId, InputFile, InputMedia, InputMediaPhoto, MediaKind, MediaText, Message, MessageKind}};
+use teloxide::{requests::{Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{InputFile, InputMedia, InputMediaPhoto, MediaKind, Message, MessageKind}};
 use crate::command::Command;
 
 
 pub struct Conversation {
-    bot: Arc<pembantu_core::bot::Bot>,
+    bot: pembantu_core::bot::Bot,
     teloxide_bot: Arc<teloxide::Bot>
 }
 impl Conversation {
-    pub fn new(bot: Arc<pembantu_core::bot::Bot>, teloxide_bot: Arc<teloxide::Bot>) -> Self {
+    pub fn new(bot: pembantu_core::bot::Bot, teloxide_bot: Arc<teloxide::Bot>) -> Self {
         Self {
             bot,
             teloxide_bot,
@@ -45,7 +45,7 @@ impl Conversation {
         // Send the response from AI to user
         self.teloxide_bot.edit_message_text(msg.chat.id, sent_msg.id, response_str).await?;
 
-        return Ok(())
+        Ok(())
     }
 
     pub async fn generate_and_send_image(&self, msg: Message, text: String) -> ResponseResult<()> {

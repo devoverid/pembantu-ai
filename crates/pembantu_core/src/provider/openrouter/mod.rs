@@ -1,2 +1,2 @@
-pub mod openrouter;
+pub mod client;
 pub mod types;

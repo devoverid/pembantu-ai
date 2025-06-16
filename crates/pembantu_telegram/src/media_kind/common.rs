@@ -1,10 +1,7 @@
 use teloxide::types::{MediaKind, MessageCommon};
 
 pub fn process_common(value: &MessageCommon) {
-    match &value.media_kind {
-        MediaKind::Text(_text) => {
-            
-        },
-        _ => ()
+    if let MediaKind::Text(_text) = &value.media_kind {
+        
     }
 }

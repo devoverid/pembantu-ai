@@ -1,2 +1,2 @@
-pub mod gemini;
+pub mod client;
 pub mod types;

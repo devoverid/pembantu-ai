@@ -11,7 +11,12 @@ pub enum PembantuError {
 
 impl std::fmt::Display for PembantuError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PembantuError: {}", self);
+        match self {
+            PembantuError::RequestError(e) => write!(f, "Request error: {}", e),
+            PembantuError::ProviderNotImplemented => write!(f, "Provider not implemented"),
+            PembantuError::Base64DecodeError => write!(f, "Failed to decode base64 data"),
+            PembantuError::GenerateError(msg) => write!(f, "Generation error: {}", msg),
+        }.unwrap();
         Ok(())
     }
 }

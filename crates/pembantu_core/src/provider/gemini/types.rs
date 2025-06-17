@@ -89,7 +89,7 @@ pub struct Candidate {
     pub finish_reason: String,
     #[serde(rename = "avgLogprobs", skip_serializing_if = "Option::is_none")]
     pub avg_logprobs: Option<f64>,
-    pub index: i32,
+    pub index: Option<i32>,
 }
 
 #[derive(Deserialize, Debug)]

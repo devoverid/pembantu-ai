@@ -1028,6 +1028,7 @@ dependencies = [
  "base64 0.22.1",
  "dotenv",
  "dyn-clone",
+ "log",
  "reqwest 0.11.23",
  "serde",
  "serde_json",

@@ -31,10 +31,17 @@ impl TextGenerationProvider for GeminiAPI {
             .json(&req.body)
             .send()
             .await?;
-        
+        let status = response.status();
         let response_str = response.text().await?;
-        let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
 
+        if status != 200 {
+            log::error!("Error generating response: {}", response_str);
+            return Ok("Error generating response".into());
+        }
+        
+        dbg!(&response_str);
+        let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
+        
         Ok(response_json.candidates[0].content.parts[0].text.clone().unwrap_or("".into()))
     }
 }

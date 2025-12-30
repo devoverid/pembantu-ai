@@ -1,5 +1,5 @@
 # Chef stage - prepares the recipe for dependency caching
-FROM rust:1.80-bookworm as chef
+FROM rust:1.92-bookworm as chef
 RUN cargo install cargo-chef
 WORKDIR /app
 

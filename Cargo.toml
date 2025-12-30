@@ -5,3 +5,6 @@ members = [
     "crates/pembantu_core",
     "crates/pembantu_whatsapp",
 ]
+
+[workspace.dependencies]
+log = "0.4"

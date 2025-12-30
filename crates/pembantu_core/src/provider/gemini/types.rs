@@ -104,6 +104,8 @@ pub struct ContentPart {
     pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "inlineData")]
     pub inline_data: Option<InlineData>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "thoughtSignature")]
+    pub thought_signature: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -123,8 +125,10 @@ pub struct UsageMetadata {
     pub total_token_count: i32,
     #[serde(rename = "promptTokensDetails")]
     pub prompt_tokens_details: Vec<TokenDetail>,
-    #[serde(rename = "candidatesTokensDetails")]
-    pub candidates_tokens_details: Vec<TokenDetail>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "candidatesTokensDetails")]
+    pub candidates_tokens_details: Option<Vec<TokenDetail>>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "thoughtsTokenCount")]
+    pub thoughts_token_count: Option<i32>,
 }
 
 #[derive(Deserialize, Debug)]

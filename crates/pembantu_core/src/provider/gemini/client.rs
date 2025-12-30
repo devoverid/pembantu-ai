@@ -4,7 +4,18 @@ use base64::prelude::*;
 
 #[async_trait]
 impl TextGenerationProvider for GeminiAPI {
-    async fn generate(&self, message: String) -> Result<String, PembantuError> {
+    async fn generate(&self, message: String, images: Option<Vec<String>>) -> Result<String, PembantuError> {
+        let mut user_parts = vec![Part::text(&message)];
+        if let Some(images) = images {
+            for image_url in images {
+                let response = self.client.get(&image_url).send().await?;
+                let image_data = response.bytes().await?;
+                let base64_image = BASE64_STANDARD.encode(image_data);
+                user_parts.push(Part::image("image/jpeg", &base64_image));
+            }
+        }
+        log::debug!("req {:?}", user_parts.len());
+
         let req = CompletionsRequest {
             model: self.model.clone(),
             body: GenerateContent {
@@ -18,13 +29,12 @@ impl TextGenerationProvider for GeminiAPI {
                     },
                     Content {
                         role: Role::User,
-                        parts: vec![
-                            Part::text(&message)
-                        ]
+                        parts: user_parts
                     },
                 ]
             }
         };
+
 
         let response = self.client.post(format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", req.model, self.api_key))
             .header("Content-Type", "application/json")
@@ -39,7 +49,6 @@ impl TextGenerationProvider for GeminiAPI {
             return Ok("Error generating response".into());
         }
         
-        dbg!(&response_str);
         let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
         
         Ok(response_json.candidates[0].content.parts[0].text.clone().unwrap_or("".into()))

@@ -30,8 +30,8 @@ impl Handler {
     }
     async fn answer_replied_message(&self, msg: Message) -> ResponseResult<()> {
         let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into());
-        log::info!("Replying to message from {}", from);
-    
+        log::info!("[answer_replied_message] Replying to message from {}", from);
+        
         if let Some(reply_to_msg) =  msg.reply_to_message() {
             if let Some(user) = &reply_to_msg.from {
                 if user.username.as_ref().unwrap() == &self.bot_username {
@@ -40,11 +40,10 @@ impl Handler {
                 }
             } 
         }
-        else if msg.text().is_some() {
-            let text = msg.text().unwrap();
+        else if msg.text().is_some() || msg.caption().is_some() {
+            let text = msg.text().or(msg.caption()).unwrap();
             
-            if text.starts_with("AI,") ||
-                msg.chat.is_private() {
+            if text.starts_with("AI,") || msg.chat.is_private() {
                 // replying to private chat
                 let result = self.conversation.reply_message(msg).await;
                 return result
@@ -60,7 +59,6 @@ async fn main() {
     dotenv().ok();
     pretty_env_logger::init();
     let env = envy::from_env::<Config>().expect("Failed to parse env");
-    dbg!(&env);
     // init providers
     let text_provider = match env.provider_text_generation {
         None => None,
@@ -93,6 +91,7 @@ async fn main() {
 
     
     let handler = dptree::entry()
+        // this branch is to reply to command
         .branch(Update::filter_message().filter_command::<command::Command>().endpoint(move |msg: Message, cmd: Command| {
             let handler = handler.clone();
             async move {
@@ -112,6 +111,7 @@ async fn main() {
                 }
             }
         }))
+        // this branch is to reply to direct message
         .branch(Update::filter_message().endpoint(move |msg: Message| {
             let handler = handler_arc2.clone();
             async move { 

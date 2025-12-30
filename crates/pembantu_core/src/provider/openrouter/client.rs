@@ -4,7 +4,7 @@ use crate::{error::PembantuError, prompt, provider::{openrouter::types::{self, C
 
 #[async_trait]
 impl TextGenerationProvider for OpenRouterAPI {
-    async fn generate(&self, message: String) -> Result<String, PembantuError> {
+    async fn generate(&self, message: String, images: Option<Vec<String>>) -> Result<String, PembantuError> {
         let body = types::CompletionsRequest {
             model: self.model.clone(),
             messages: vec![

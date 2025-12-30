@@ -26,9 +26,9 @@ impl Bot {
         })
     }
 
-    pub async fn generate_text(&self, prompt: String) -> Result<String, PembantuError> {
+    pub async fn generate_text(&self, prompt: String, image_urls: Option<Vec<String>>) -> Result<String, PembantuError> {
         match &self.text_provider {
-            Some(provider) => provider.generate(prompt).await,
+            Some(provider) => provider.generate(prompt, image_urls).await,
             None => Err(PembantuError::ProviderNotImplemented)
         }
     }

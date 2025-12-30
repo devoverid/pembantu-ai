@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use pembantu_core::error::PembantuError;
 use teloxide::{requests::{Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{InputFile, InputMedia, InputMediaPhoto, MediaKind, Message, MessageKind}};
 use crate::command::Command;
 
@@ -17,24 +16,14 @@ impl Conversation {
         }
     }
 
-    pub async fn generate_message(&self, text: String) -> Result<String, PembantuError> {
-        self.bot.generate_text(text)
-            .await
-    }
-
-    pub async fn generate_image(&self, prompt: String) -> Result<Vec<u8>, PembantuError> {
-        self.bot.generate_image(prompt)
-            .await
-    }
-
-    pub async fn generate_and_send_text(&self, msg: Message, text: String) -> ResponseResult<()> {
+    pub async fn generate_and_send_text(&self, msg: Message, text: String, photos: Option<Vec<String>>) -> ResponseResult<()> {
         // Send 'loading' message to user
         let sent_msg = self.teloxide_bot
             .send_message(msg.chat.id, "*Sedang berpikir* ⏳")
             .reply_to(msg.id)
             .await?;
 
-        let response = self.generate_message(text).await;
+        let response = self.bot.generate_text(text, photos).await;
         let response_str = match response {
             Ok(v) => v,
             Err(e) => {
@@ -55,7 +44,7 @@ impl Conversation {
             .reply_to(msg.id)
             .await?;
 
-        let response = self.generate_image(text).await;
+        let response = self.bot.generate_image(text).await;
         let response_data = match response {
             Ok(v) => v,
             Err(e) => {
@@ -77,19 +66,7 @@ impl Conversation {
             },
             Command::Ask => {
                 // Get the reply from AI
-                match msg.kind {
-                    MessageKind::Common(ref common) => {
-                        if let MediaKind::Text(ref text) = common.media_kind {
-                            let text_content = text.text.clone();
-                            self.generate_and_send_text(msg, text_content).await?;
-                        }
-                    }
-                    _ => {
-                        log::info!("Unimplemented: {:?}", msg.kind);
-                        unimplemented!()
-                    }
-                }
-
+                self.reply_message(msg).await?;
             }
             Command::Image => {
                 // Get the reply from AI
@@ -111,14 +88,42 @@ impl Conversation {
     }
 
     pub async fn reply_message(&self, msg: Message) -> Result<(), teloxide::RequestError> {
+        log::info!("replying message..");
+        match msg.kind {
+            MessageKind::Common(ref common) => {
+                // INSERT_YOUR_CODE
+                match common.media_kind {
+                    MediaKind::Text(ref text) => {
+                        let text_content = text.text.clone();
+                        self.generate_and_send_text(msg, text_content, None).await?;
+                    },
+                    MediaKind::Photo(ref photo) => {
+                        let photo_content = photo.caption.clone();
 
-        // Get the reply from AI
-        if let MessageKind::Common(common) = &msg.kind {
-            if let MediaKind::Text(text) = &common.media_kind {
-                let text_content = text.text.clone();
-                self.generate_and_send_text(msg, text_content).await?;
+                        // caption is required
+                        if photo_content.is_none() {
+                            self.generate_and_send_text(msg, "Please add a caption!".into(), None).await?;
+                            return Ok(());
+                        }
+
+                        let largest_photo = photo.photo.iter()
+                            .max_by_key(|p| p.file.size)
+                            .expect("Photo array should not be empty");
+
+                        let file = self.teloxide_bot.get_file(&largest_photo.file.id).await?;
+                        let photo_url = format!("https://api.telegram.org/file/bot{}/{}", self.teloxide_bot.token(), file.path);
+
+                        self.generate_and_send_text(msg, photo_content.clone().unwrap(), Some(vec![photo_url])).await?;
+                    },
+                    _ => ()
+                }
+            }
+            _ => {
+                log::info!("Unimplemented: {:?}", msg.kind);
+                unimplemented!()
             }
         }
+
         Ok(())
     }
 }
@@ -138,7 +143,7 @@ mod tests {
         let model = "google/gemini-2.0-flash-001".to_string();
         let bot = pembantu_core::bot::Bot::new(Some(TextProvider::OpenRouter(api_key, model)), None).unwrap();
         
-        let result = bot.generate_text("Hi, how are you?".into()).await;
+        let result = bot.generate_text("Hi, how are you?".into(), None).await;
         assert!(result.is_ok())
     }
 

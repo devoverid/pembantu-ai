@@ -18,7 +18,7 @@ pub enum ImageProvider {
 
 #[async_trait]
 pub(crate) trait TextGenerationProvider: Send + Sync + DynClone {
-    async fn generate(&self, message: String) -> Result<String, PembantuError>;
+    async fn generate(&self, message: String, images: Option<Vec<String>>) -> Result<String, PembantuError>;
 }
 
 #[async_trait]

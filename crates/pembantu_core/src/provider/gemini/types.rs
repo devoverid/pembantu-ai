@@ -50,21 +50,42 @@ pub struct Content {
     pub role: Role
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
+pub struct InlineDataRequest {
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Debug)]
 pub struct Part {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "inlineData")]
+    pub inline_data: Option<InlineDataRequest>,
 }
 
 impl Part {
     pub fn text(text: &str) -> Self {
         Self {
-            text: Some(text.into())
+            text: Some(text.into()),
+            inline_data: None
+        }
+    }
+    pub fn image(mime_type: &str, base64_data: &str) -> Self {
+        Self {
+            text: None,
+            inline_data: Some(
+                InlineDataRequest {
+                    mime_type: mime_type.into(),
+                    data: base64_data.into(),
+                }
+            )
         }
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Role {
     User,

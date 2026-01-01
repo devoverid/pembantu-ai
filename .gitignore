@@ -1,3 +1,4 @@
 /target
 .env
 crates/*/target
+crates/pembantu_whatsapp/data

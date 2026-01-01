@@ -6,3 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+whatsapp-rust = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+whatsapp-rust-tokio-transport = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+whatsapp-rust-ureq-http-client = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+wacore = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+wacore-binary = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+waproto = { git = "https://github.com/jlucaso1/whatsapp-rust", branch = "main" }
+tokio = { version = "1", features = ["full"] }
+pembantu_core = { path = "../pembantu_core" }
+serde = "1.0.219"
+envy = "0.4.2"
+secrecy = { version = "0.10.3", features = ["serde"] }
+dotenv = "0.15.0"
+log = { workspace = true }
+pretty_env_logger = "0.4"
+base64 = "0.22.1"

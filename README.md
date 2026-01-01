@@ -40,6 +40,10 @@ BOT_USERNAME=
 ```
 cargo run -p pembantu_telegram
 ```
+6. Run the whatsapp bot
+```
+cargo +nightly run -p pembantu_whatsapp
+```
 
 ## License 
 MIT

@@ -48,10 +48,14 @@ impl TextGenerationProvider for GeminiAPI {
             log::error!("Error generating response: {}", response_str);
             return Ok("Error generating response".into());
         }
-        
-        let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
-        
-        Ok(response_json.candidates[0].content.parts[0].text.clone().unwrap_or("".into()))
+
+        let response_json: GenerateContentResponse = serde_json::from_str(&response_str)
+            .map_err(|e| PembantuError::GenerateError(format!("invalid Gemini response: {e}")))?;
+
+        response_json.candidates.first()
+            .and_then(|c| c.content.as_ref())
+            .and_then(|c| c.parts.iter().find_map(|p| p.text.clone()))
+            .ok_or_else(|| PembantuError::GenerateError("no text returned".into()))
     }
 }
 
@@ -80,27 +84,26 @@ impl ImageGenerationProvider for GeminiAPI {
             .json(&req.body)
             .send()
             .await?;
-        let response_str = response.text().await?;
-        let response_json: GenerateContentResponse = serde_json::from_str::<GenerateContentResponse>(&response_str).unwrap();
-        let mut b64 = None;
-
-        for part in response_json.candidates[0].content.parts.iter() {
-            if let Some(data) = &part.inline_data {
-                b64 = Some(&data.data);
-            }
-            // if let Some(text) = part.text {
-            //     text = Some(text);
-            // }
+        let status = response.status();
+        let body = response.text().await?;
+        if !status.is_success() {
+            return Err(PembantuError::GenerateError(format!("Gemini image API {status}: {body}")));
         }
-        if let Some(b64) = b64 {
-            let decoded = BASE64_STANDARD.decode(b64)
-                .map_err(|e| {
-                    dbg!(e);
-                    PembantuError::Base64DecodeError
-                })?;
-            return Ok(decoded)
+        let response_json: GenerateContentResponse = serde_json::from_str(&body)
+            .map_err(|e| PembantuError::GenerateError(format!("invalid Gemini image response: {e}")))?;
+
+        let candidate = response_json.candidates.first();
+        let parts = candidate
+            .and_then(|c| c.content.as_ref())
+            .map(|c| c.parts.as_slice())
+            .unwrap_or_default();
+
+        if let Some(data) = parts.iter().find_map(|p| p.inline_data.as_ref()) {
+            return BASE64_STANDARD.decode(&data.data).map_err(|_| PembantuError::Base64DecodeError);
         }
 
-        return Err(PembantuError::GenerateError("Failed to generate image".into()))
+        let finish_reason = candidate.and_then(|c| c.finish_reason.as_deref()).unwrap_or("none");
+        let text: String = parts.iter().filter_map(|p| p.text.as_deref()).collect::<Vec<_>>().join(" ");
+        Err(PembantuError::GenerateError(format!("no image returned (finishReason={finish_reason}, text={text})")))
     }
 }

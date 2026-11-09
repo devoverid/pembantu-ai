@@ -8,6 +8,8 @@ pub enum PembantuError {
     Llm(#[from] async_openai::error::OpenAIError),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("database error: {0}")]
+    Db(#[from] sqlx::Error),
     #[error("failed to decode base64 data")]
     Base64DecodeError,
     #[error("generation error: {0}")]

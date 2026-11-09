@@ -5,6 +5,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct Config {
     pub teloxide_token: SecretString,
+    pub database_url: SecretString,
     /// `openrouter` or `gemini`.
     pub provider_text_generation: String,
     pub model_text_generation: String,

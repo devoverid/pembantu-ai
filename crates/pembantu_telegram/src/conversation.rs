@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
+use pembantu_core::agent::{AgentRequest, ChatInfo, ChatKind, Trigger, UserInfo};
 use teloxide::{requests::{Requester, ResponseResult}, sugar::request::RequestReplyExt, types::{InputFile, InputMedia, InputMediaPhoto, MediaKind, Message, MessageKind}};
 use crate::command::Command;
 
 
 pub struct Conversation {
-    bot: pembantu_core::bot::Bot,
+    bot: pembantu_core::agent::Agent,
     teloxide_bot: Arc<teloxide::Bot>
 }
 impl Conversation {
-    pub fn new(bot: pembantu_core::bot::Bot, teloxide_bot: Arc<teloxide::Bot>) -> Self {
+    pub fn new(bot: pembantu_core::agent::Agent, teloxide_bot: Arc<teloxide::Bot>) -> Self {
         Self {
             bot,
             teloxide_bot,
@@ -23,7 +24,27 @@ impl Conversation {
             .reply_to(msg.id)
             .await?;
 
-        let response = self.bot.generate_text(text).await;
+        let user = msg.from.as_ref();
+        let request = AgentRequest {
+            chat: ChatInfo {
+                id: msg.chat.id.0,
+                thread_id: None,
+                kind: if msg.chat.is_private() { ChatKind::Private } else { ChatKind::Group },
+                title: msg.chat.title().map(str::to_owned),
+            },
+            user: UserInfo {
+                id: user.map(|u| u.id.0 as i64).unwrap_or_default(),
+                full_name: user.map(|u| u.full_name()).unwrap_or_default(),
+                username: user.and_then(|u| u.username.clone()),
+                language_code: user.and_then(|u| u.language_code.clone()),
+            },
+            text,
+            images: Vec::new(),
+            reply_context: None,
+            trigger: Trigger::UserMessage { telegram_message_id: msg.id.0 },
+        };
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let response = self.bot.run(request, events).await.map(|output| output.text);
         let response_str = match response {
             Ok(v) => v,
             Err(e) => {
@@ -44,7 +65,7 @@ impl Conversation {
             .reply_to(msg.id)
             .await?;
 
-        let response = self.bot.generate_image(text).await;
+        let response = self.bot.generate_image(&text).await;
         let response_data = match response {
             Ok(v) => v,
             Err(e) => {

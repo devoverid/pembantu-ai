@@ -74,7 +74,7 @@ async fn main() {
 
 
     let teloxide_bot = Arc::new(teloxide::Bot::from_env());
-    let ai = pembantu_core::bot::Bot::new(llm, image);
+    let ai = pembantu_core::agent::Agent::new(llm, image, chrono_tz::Asia::Jakarta);
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
     let conversation = conversation::Conversation::new(ai, teloxide_bot.clone());
 

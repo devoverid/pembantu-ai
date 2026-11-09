@@ -4,6 +4,7 @@ pub mod error;
 pub mod llm;
 pub mod prompt;
 pub mod provider;
+pub mod schedule;
 pub mod tools;
 
 /// Returns at most `max_chars` characters of `s`, cutting on a char boundary.

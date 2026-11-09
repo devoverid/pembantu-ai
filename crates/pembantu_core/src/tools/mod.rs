@@ -1,6 +1,7 @@
 //! Built-in tools the agent can call. Every tool module exposes `NAME`, `definition()` and `run()`.
 
 pub mod forget;
+pub mod generate_image;
 pub mod read_chat_history;
 pub mod remember;
 pub mod set_timezone;
@@ -54,6 +55,9 @@ impl Tools {
         if self.search.is_some() {
             names.extend([web_search::NAME, read_webpage::NAME]);
         }
+        if self.image.is_some() {
+            names.push(generate_image::NAME);
+        }
         names
     }
 
@@ -86,6 +90,10 @@ impl Tools {
             (set_timezone::NAME, _) => set_timezone::run(args, ctx).await,
             (web_search::NAME, Some(client)) => web_search::run(args, client).await,
             (read_webpage::NAME, Some(client)) => read_webpage::run(args, client).await,
+            (generate_image::NAME, _) => match &self.image {
+                Some(image) => generate_image::run(args, ctx, image).await,
+                None => Err(PembantuError::Generate("image generation is not configured".into())),
+            },
             _ => Err(PembantuError::Generate(format!("unknown tool: {name}"))),
         }
     }
@@ -99,6 +107,7 @@ fn definition(name: &str) -> Option<ChatCompletionTools> {
         set_timezone::NAME => set_timezone::definition(),
         web_search::NAME => web_search::definition(),
         read_webpage::NAME => read_webpage::definition(),
+        generate_image::NAME => generate_image::definition(),
         _ => return None,
     })
 }

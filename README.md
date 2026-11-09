@@ -29,13 +29,15 @@ cd pembantu-ai
 ```
 cp .env.example .env
 ```
-3. Set up your values in .env 
+3. Set up your values in .env (see `.env.example`)
 ```
 TELOXIDE_TOKEN=
-OPENROUTER_API=
-RUST_LOG=trace
-BOT_USERNAME=
+PROVIDER_TEXT_GENERATION=openrouter
+MODEL_TEXT_GENERATION=google/gemini-3.5-flash-lite
+OPENROUTER_API_KEY=
+GEMINI_API_KEY=
 ```
+   For group chats, disable privacy mode in @BotFather (`/setprivacy` → Disable) so the bot can read group messages.
 5. Run the telegram bot
 ```
 cargo run -p pembantu_telegram

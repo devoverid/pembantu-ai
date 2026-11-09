@@ -1,133 +1,100 @@
-use command::Command;
-use pembantu_core::provider::{ImageProvider, TextProvider};
-use secrecy::ExposeSecret;
-use teloxide::dispatching::UpdateFilterExt;
-use teloxide::prelude::*;
-use dotenv::dotenv;
-use std::env;
 use std::sync::Arc;
 
-use crate::types::Config;
+use pembantu_core::{
+    agent::Agent,
+    llm::{LlmClient, LlmProvider},
+    provider::gemini::types::GeminiAPI,
+};
+use secrecy::{ExposeSecret, SecretString};
+use teloxide::{prelude::*, utils::command::BotCommands};
 
-pub mod media_kind;
-pub mod command;
-pub mod conversation;
-pub mod updates;
-pub mod types;
+use crate::{app::App, command::Command, types::Config};
 
-struct Handler {
-    conversation: conversation::Conversation,
-    bot_username: String,   
+mod app;
+mod command;
+mod handlers;
+mod i18n;
+mod render;
+mod reply;
+mod types;
+
+/// envy maps `KEY=` to `Some("")`; treat that as unset.
+fn non_empty(value: Option<String>) -> Option<String> {
+    value.filter(|v| !v.trim().is_empty())
 }
 
-impl Handler {
-    async fn answer_command(&self, msg: Message, cmd: Command) -> ResponseResult<()> {
-        let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into());
-        log::info!("Replying to command /{} from {}", cmd, from);
-        
-    
-        self.conversation.reply_command(msg, cmd).await
-    }
-    async fn answer_replied_message(&self, msg: Message) -> ResponseResult<()> {
-        let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into());
-        log::info!("[answer_replied_message] Replying to message from {}", from);
-        
-        if let Some(reply_to_msg) =  msg.reply_to_message() {
-            if let Some(user) = &reply_to_msg.from {
-                if user.username.as_ref().unwrap() == &self.bot_username {
-                    let result = self.conversation.reply_message(msg).await;
-                    return result
-                }
-            } 
+fn non_empty_secret(value: Option<SecretString>) -> Option<SecretString> {
+    value.filter(|v| !v.expose_secret().trim().is_empty())
+}
+
+fn build_agent(config: Config) -> Agent {
+    let openrouter_key = non_empty_secret(config.openrouter_api_key);
+    let gemini_key = non_empty_secret(config.gemini_api_key);
+    let model = non_empty(Some(config.model_text_generation)).expect("MODEL_TEXT_GENERATION is required");
+
+    let llm = match config.provider_text_generation.as_str() {
+        "openrouter" => {
+            let key = openrouter_key
+                .as_ref()
+                .expect("OPENROUTER_API_KEY is required when PROVIDER_TEXT_GENERATION=openrouter");
+            LlmClient::new(LlmProvider::OpenRouter, key.expose_secret().to_owned(), model)
         }
-        else if msg.text().is_some() || msg.caption().is_some() {
-            let text = msg.text().or(msg.caption()).unwrap();
-            
-            if text.starts_with("AI,") || msg.chat.is_private() {
-                // replying to private chat
-                let result = self.conversation.reply_message(msg).await;
-                return result
-            }
+        "gemini" => {
+            let key = gemini_key
+                .as_ref()
+                .expect("GEMINI_API_KEY is required when PROVIDER_TEXT_GENERATION=gemini");
+            LlmClient::new(LlmProvider::Gemini, key.expose_secret().to_owned(), model)
         }
-    
-        Ok(())
-    }
+        other => panic!("unknown PROVIDER_TEXT_GENERATION={other:?}; expected openrouter or gemini"),
+    };
+
+    let image = match non_empty(config.provider_image_generation).as_deref() {
+        None => None,
+        Some("gemini") => {
+            let model = non_empty(config.model_image_generation)
+                .expect("MODEL_IMAGE_GENERATION is required when PROVIDER_IMAGE_GENERATION is set");
+            let key = gemini_key
+                .as_ref()
+                .expect("GEMINI_API_KEY is required when PROVIDER_IMAGE_GENERATION=gemini");
+            Some(GeminiAPI::new(key.expose_secret().to_owned(), model))
+        }
+        Some(other) => panic!("unknown PROVIDER_IMAGE_GENERATION={other:?}; expected gemini"),
+    };
+
+    let timezone: chrono_tz::Tz = config.default_timezone.parse().unwrap_or_else(|_| {
+        panic!(
+            "invalid DEFAULT_TIMEZONE={:?}; use an IANA name such as Asia/Jakarta",
+            config.default_timezone
+        )
+    });
+
+    Agent::new(llm, image, timezone)
 }
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
+    dotenvy::dotenv().ok();
     pretty_env_logger::init();
-    let env = envy::from_env::<Config>().expect("Failed to parse env");
-    // init providers
-    let text_provider = match env.provider_text_generation {
-        None => None,
-        Some(s) => Some(match s.as_str() {
-            "openrouter" => TextProvider::OpenRouter(env.openrouter_api_key.expose_secret().to_string(), env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
-            "gemini" => TextProvider::Gemini(env.gemini_api_key.expose_secret().to_string(), env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
-            _ => panic!("Text generation model not supported. Available options: openrouter, gemini")
-        })
-    };
-    let image_provider = match env.provider_image_generation {
-        None => None,
-        Some(s) => Some(match s.as_str() {
-            "gemini" => ImageProvider::Gemini(env.gemini_api_key.expose_secret().to_string(), env.model_image_generation.expect("MODEL_IMAGE_GENERATION is empty")),
-            _ => panic!("Image generation model not supported. Available options: gemini")
-        })
-    };
+    let config = envy::from_env::<Config>().expect("failed to read configuration from the environment");
 
+    let bot = Bot::new(config.teloxide_token.expose_secret());
+    let agent = build_agent(config);
 
-    let teloxide_bot = Arc::new(teloxide::Bot::from_env());
-    let ai = pembantu_core::bot::Bot::new(text_provider, image_provider).unwrap();
-    let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
-    let conversation = conversation::Conversation::new(ai, teloxide_bot.clone());
+    let me = bot.get_me().await.expect("getMe failed; check TELOXIDE_TOKEN");
+    if let Err(e) = bot.set_my_commands(Command::bot_commands()).await {
+        log::error!("failed to register bot commands: {e}");
+    }
+    if !me.can_read_all_group_messages {
+        log::warn!("Privacy mode is enabled; disable it in @BotFather (/setprivacy) so the bot can read group messages");
+    }
+    log::info!("Starting @{}", me.username());
 
-    let handler = Arc::new(Box::new(Handler {
-        conversation,
-        bot_username
-    }));
-    let handler_arc2: Arc<Box<Handler>> = handler.clone();
-    log::info!("Starting bot..");
-
-    
-    let handler = dptree::entry()
-        // this branch is to reply to command
-        .branch(Update::filter_message().filter_command::<command::Command>().endpoint(move |msg: Message, cmd: Command| {
-            let handler = handler.clone();
-            async move {
-                let chatid = msg.chat.id;
-                let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into()).clone();
-                match handler.answer_command(msg.clone(), cmd.clone()).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => {
-                        log::error!(
-                            "Failed to process message from user: {:?} in chat: {}. Error: {:?}",
-                            from,
-                            chatid,
-                            e
-                        );
-                        Err(e)
-                    }
-                }
-            }
-        }))
-        // this branch is to reply to direct message
-        .branch(Update::filter_message().endpoint(move |msg: Message| {
-            let handler = handler_arc2.clone();
-            async move { 
-                let chatid = msg.chat.id;
-                let from = msg.from.as_ref().map(|v| v.full_name()).unwrap_or("".into()).clone();
-                handler.answer_replied_message(msg).await.map_err(|e| {
-                    log::error!(
-                        "Failed to process message from user: {:?} in chat: {}. Error: {:?}",
-                        from,
-                        chatid,
-                        e
-                    );
-                    e
-                })
-            }
-        }));
-
-    Dispatcher::builder(teloxide_bot, handler).enable_ctrlc_handler().build().dispatch().await;
+    let app = Arc::new(App { bot: bot.clone(), agent, me });
+    let handler = Update::filter_message().endpoint(handlers::handle_message);
+    Dispatcher::builder(bot, handler)
+        .dependencies(dptree::deps![app])
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }

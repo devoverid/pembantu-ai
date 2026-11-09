@@ -1,5 +1,10 @@
 //! Built-in tools the agent can call. Every tool module exposes `NAME`, `definition()` and `run()`.
 
+pub mod forget;
+pub mod read_chat_history;
+pub mod remember;
+pub mod set_timezone;
+
 use async_openai::types::chat::{ChatCompletionTool, ChatCompletionTools, FunctionObject};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
@@ -41,7 +46,7 @@ impl Tools {
 
     /// Names of the tools available for this trigger.
     pub fn names(&self, _trigger: &Trigger) -> Vec<&'static str> {
-        Vec::new()
+        vec![remember::NAME, forget::NAME, read_chat_history::NAME, set_timezone::NAME]
     }
 
     pub fn definitions(&self, trigger: &Trigger) -> Vec<ChatCompletionTools> {
@@ -65,15 +70,25 @@ impl Tools {
         }
     }
 
-    async fn dispatch(&self, name: &str, _args: &str, _ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
-        Err(PembantuError::Generate(format!("unknown tool: {name}")))
+    async fn dispatch(&self, name: &str, args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+        match name {
+            remember::NAME => remember::run(args, ctx).await,
+            forget::NAME => forget::run(args, ctx).await,
+            read_chat_history::NAME => read_chat_history::run(args, ctx).await,
+            set_timezone::NAME => set_timezone::run(args, ctx).await,
+            _ => Err(PembantuError::Generate(format!("unknown tool: {name}"))),
+        }
     }
 }
 
 fn definition(name: &str) -> Option<ChatCompletionTools> {
-    match name {
-        _ => None,
-    }
+    Some(match name {
+        remember::NAME => remember::definition(),
+        forget::NAME => forget::definition(),
+        read_chat_history::NAME => read_chat_history::definition(),
+        set_timezone::NAME => set_timezone::definition(),
+        _ => return None,
+    })
 }
 
 /// Builds a function tool definition.

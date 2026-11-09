@@ -21,7 +21,8 @@ use crate::{
     reply::{self, ReplyTarget},
 };
 
-const TICK: Duration = Duration::from_secs(20);
+/// Due tasks fire at most this late; the claim query uses a partial index, so polling is cheap.
+const TICK: Duration = Duration::from_secs(5);
 const BATCH: i64 = 20;
 
 pub async fn run(app: Arc<App>) {

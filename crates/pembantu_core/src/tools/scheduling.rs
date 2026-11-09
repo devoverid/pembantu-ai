@@ -15,7 +15,7 @@ use crate::{
 fn schedule_properties() -> Value {
     json!({
         "at": {"type": "string", "description": "One-off local time, format YYYY-MM-DD HH:MM."},
-        "in_minutes": {"type": "integer", "minimum": 1, "maximum": 525600, "description": "One-off, this many minutes from now."},
+        "in_seconds": {"type": "integer", "minimum": 10, "maximum": 31536000, "description": "One-off, this many seconds from now (e.g. 20 for \"in 20 seconds\", 7200 for \"in 2 hours\")."},
         "daily_at": {"type": "string", "description": "Repeat every day at this local time, format HH:MM."},
         "weekdays": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 7}, "description": "With daily_at only: ISO weekdays to run on (1 = Monday … 7 = Sunday). Omit for every day."}
     })
@@ -24,7 +24,7 @@ fn schedule_properties() -> Value {
 #[derive(Deserialize)]
 struct ScheduleArgs {
     at: Option<String>,
-    in_minutes: Option<i64>,
+    in_seconds: Option<i64>,
     daily_at: Option<String>,
     weekdays: Option<Vec<u8>>,
 }
@@ -35,9 +35,9 @@ fn invalid(msg: &str) -> PembantuError {
 
 impl ScheduleArgs {
     fn into_schedule(self, ctx: &ToolContext<'_>) -> Result<(Schedule, DateTime<Utc>), PembantuError> {
-        let given = [self.at.is_some(), self.in_minutes.is_some(), self.daily_at.is_some()];
+        let given = [self.at.is_some(), self.in_seconds.is_some(), self.daily_at.is_some()];
         if given.iter().filter(|g| **g).count() != 1 {
-            return Err(invalid("give exactly one of at, in_minutes or daily_at"));
+            return Err(invalid("give exactly one of at, in_seconds or daily_at"));
         }
         if self.weekdays.is_some() && self.daily_at.is_none() {
             return Err(invalid("weekdays can only be used with daily_at"));
@@ -45,11 +45,11 @@ impl ScheduleArgs {
         let schedule = if let Some(at) = self.at {
             let at = parse_local_datetime(&at).ok_or_else(|| invalid("at must be formatted YYYY-MM-DD HH:MM"))?;
             Schedule::Once { at }
-        } else if let Some(minutes) = self.in_minutes {
-            if !(1..=525_600).contains(&minutes) {
-                return Err(invalid("in_minutes must be between 1 and 525600"));
+        } else if let Some(seconds) = self.in_seconds {
+            if !(10..=31_536_000).contains(&seconds) {
+                return Err(invalid("in_seconds must be between 10 and 31536000"));
             }
-            Schedule::Once { at: (ctx.now + Duration::minutes(minutes)).with_timezone(&ctx.timezone).naive_local() }
+            Schedule::Once { at: (ctx.now + Duration::seconds(seconds)).with_timezone(&ctx.timezone).naive_local() }
         } else {
             let daily_at = self.daily_at.unwrap_or_default();
             let time = parse_local_time(&daily_at).ok_or_else(|| invalid("daily_at must be formatted HH:MM"))?;
@@ -92,7 +92,7 @@ async fn create(ctx: &ToolContext<'_>, kind: &str, payload: &str, args: Schedule
     .await?;
     Ok(json!({
         "task_id": task_id,
-        "next_run_local": next.with_timezone(&ctx.timezone).format("%Y-%m-%d %H:%M").to_string(),
+        "next_run_local": next.with_timezone(&ctx.timezone).format("%Y-%m-%d %H:%M:%S").to_string(),
         "schedule": schedule.describe(),
     })
     .to_string())

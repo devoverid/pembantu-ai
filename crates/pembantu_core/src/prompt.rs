@@ -106,6 +106,14 @@ pub fn system_prompt(p: &PromptContext) -> String {
             "Use read_chat_history before summarizing. \
              When the user states a lasting personal fact or preference, call remember.\n",
         );
+        if p.tool_names.contains(&"create_reminder") {
+            let _ = writeln!(
+                s,
+                "Times the user gives are in {}; use create_reminder for fixed messages and schedule_agent_task \
+                 when work must be done at that time (e.g. a daily briefing).",
+                p.timezone
+            );
+        }
     }
     // Last, so it outweighs the Indonesian name, the timezone and earlier replies.
     let _ = write!(

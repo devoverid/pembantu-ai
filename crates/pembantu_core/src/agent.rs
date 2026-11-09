@@ -104,8 +104,6 @@ impl Agent {
     ) -> Result<AgentOutput, PembantuError> {
         db::upsert_user(&self.db, &req.user).await?;
         let timezone = self.user_timezone(req.user.id).await?;
-        let language = detect_language(&req.text)
-            .unwrap_or_else(|| ReplyLanguage::from_code(req.user.language_code.as_deref()));
         let exclude = match req.trigger {
             Trigger::UserMessage { telegram_message_id } => Some(telegram_message_id),
             Trigger::ScheduledTask { .. } => None,
@@ -115,6 +113,13 @@ impl Agent {
         let memories = db::list_memories(&self.db, req.user.id, MEMORY_LIMIT).await?;
         let tool_names = self.tools.names(&req.trigger);
         let definitions = self.tools.definitions(&req.trigger);
+
+        // Scheduled prompts are written in English by the bot, so they use the creator's language.
+        let language = match req.trigger {
+            Trigger::UserMessage { .. } => detect_language(&req.text),
+            Trigger::ScheduledTask { .. } => None,
+        }
+        .unwrap_or_else(|| ReplyLanguage::from_code(req.user.language_code.as_deref()));
         let system = system_prompt(&PromptContext {
             now_local: Utc::now().with_timezone(&timezone),
             timezone,
@@ -166,7 +171,7 @@ impl Agent {
     }
 
     /// The user's saved timezone, or the default when unset or invalid.
-    async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
+    pub async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
         Ok(db::user_timezone(&self.db, user_id)
             .await?
             .and_then(|tz| tz.parse().ok())

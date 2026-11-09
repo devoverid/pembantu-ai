@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use pembantu_core::{
     agent::{AgentRequest, ChatInfo, ChatKind, ImageInput, Trigger, UserInfo},
-    db::{self, NewMessage},
+    db::{self, NewMessage, NewTask},
     error::PembantuError,
+    schedule::{parse_local_time, Schedule},
     truncate_chars,
 };
 use teloxide::{
@@ -145,14 +147,11 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
             }
         }
         Command::Image(prompt) => generate_image(&app, &msg, prompt.trim(), lang).await,
-        Command::Memory(args) => {
-            let text = match msg.from.as_ref() {
-                Some(user) => memory_command(&app, user.id.0 as i64, args.trim(), lang).await.unwrap_or_else(|e| {
-                    log::error!("/memory failed: {e}");
-                    i18n::error(lang).to_owned()
-                }),
-                None => i18n::error(lang).to_owned(),
-            };
+        cmd @ (Command::Memory(_) | Command::Briefing(_) | Command::Tasks(_) | Command::Timezone(_)) => {
+            let text = text_command(&app, &msg, cmd, lang).await.unwrap_or_else(|e| {
+                log::error!("command failed: {e}");
+                i18n::error(lang).to_owned()
+            });
             reply::send_text(&app, target, truncate_chars(&text, 4000), false).await.map(drop)
         }
         Command::Summary(args) => {
@@ -173,6 +172,117 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
     };
     if let Err(e) = result {
         log::error!("failed to handle command in chat {}: {e}", target.chat_id);
+    }
+}
+
+/// Commands that answer with a plain text message.
+async fn text_command(app: &App, msg: &Message, cmd: Command, lang: Lang) -> Result<String, PembantuError> {
+    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).ok_or(PembantuError::Generate("message has no sender".into()))?;
+    match cmd {
+        Command::Memory(args) => memory_command(app, user_id, args.trim(), lang).await,
+        Command::Briefing(args) => briefing_command(app, msg, user_id, args.trim(), lang).await,
+        Command::Tasks(args) => tasks_command(app, msg.chat.id.0, user_id, args.trim(), lang).await,
+        Command::Timezone(args) => timezone_command(app, user_id, args.trim(), lang).await,
+        _ => Err(PembantuError::Generate("not a text command".into())),
+    }
+}
+
+const BRIEFING_LABEL: &str = "daily_briefing";
+const BRIEFING_PROMPT: &str = "Prepare my daily briefing: 1) summarize important messages in this chat from the last 24 hours \
+    with read_chat_history; 2) list my upcoming scheduled tasks with list_scheduled_tasks; 3) if web_search is available, \
+    give 3 short news headlines matching my known interests. Keep it brief.";
+
+async fn briefing_command(app: &App, msg: &Message, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+    let chat_id = msg.chat.id.0;
+    if args.is_empty() {
+        let current = db::list_active_tasks(&app.db, chat_id)
+            .await?
+            .into_iter()
+            .find(|t| t.created_by == user_id && t.label.as_deref() == Some(BRIEFING_LABEL));
+        return Ok(match current {
+            Some(task) => i18n::briefing_current(lang, &task.schedule.0.describe(), &task.timezone),
+            None => i18n::usage_briefing(lang).to_owned(),
+        });
+    }
+    if args.eq_ignore_ascii_case("off") {
+        let cancelled = db::cancel_labeled_tasks(&app.db, chat_id, user_id, BRIEFING_LABEL).await?;
+        return Ok(i18n::briefing_off(lang, cancelled > 0).to_owned());
+    }
+    let Some(time) = parse_local_time(args) else {
+        return Ok(i18n::usage_briefing(lang).to_owned());
+    };
+    let tz = app.agent.user_timezone(user_id).await?;
+    let schedule = Schedule::Daily { time, weekdays: Vec::new() };
+    let next = schedule
+        .next_run_after(tz, Utc::now())
+        .ok_or(PembantuError::Generate("briefing time has no next run".into()))?;
+    db::cancel_labeled_tasks(&app.db, chat_id, user_id, BRIEFING_LABEL).await?;
+    db::create_task(
+        &app.db,
+        &NewTask {
+            chat_id,
+            thread_id: reply::topic_thread(msg).map(|t| t.0 .0),
+            created_by: user_id,
+            kind: "agent_task",
+            label: Some(BRIEFING_LABEL),
+            payload: BRIEFING_PROMPT,
+            schedule: &schedule,
+            timezone: tz.name(),
+            next_run_at: next,
+        },
+    )
+    .await?;
+    let next_local = next.with_timezone(&tz).format("%Y-%m-%d %H:%M").to_string();
+    Ok(i18n::briefing_set(lang, &time.format("%H:%M").to_string(), tz.name(), &next_local))
+}
+
+async fn tasks_command(app: &App, chat_id: i64, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+    let mut words = args.split_whitespace();
+    match (words.next(), words.next(), words.next()) {
+        (None, _, _) => {
+            let tasks = db::list_active_tasks(&app.db, chat_id).await?;
+            if tasks.is_empty() {
+                return Ok(i18n::tasks_empty(lang).to_owned());
+            }
+            let mut text = i18n::tasks_header(lang).to_owned();
+            for task in tasks {
+                let icon = if task.kind == "reminder" { "⏰" } else { "🤖" };
+                let payload = if task.label.as_deref() == Some(BRIEFING_LABEL) {
+                    i18n::briefing_name(lang)
+                } else {
+                    truncate_chars(&task.payload, 80)
+                };
+                let next = match (task.next_run_at, task.timezone.parse::<chrono_tz::Tz>()) {
+                    (Some(next), Ok(tz)) => next.with_timezone(&tz).format("%Y-%m-%d %H:%M").to_string(),
+                    _ => "-".to_owned(),
+                };
+                text.push_str(&format!(
+                    "\n#{} {icon} {payload} — {} — {next}",
+                    task.id,
+                    task.schedule.0.describe()
+                ));
+            }
+            Ok(text)
+        }
+        (Some("cancel"), Some(id), None) => match id.trim_start_matches('#').parse::<i64>() {
+            Ok(id) => Ok(i18n::task_cancel_result(lang, db::cancel_task(&app.db, chat_id, user_id, id).await?).to_owned()),
+            Err(_) => Ok(i18n::usage_tasks(lang).to_owned()),
+        },
+        _ => Ok(i18n::usage_tasks(lang).to_owned()),
+    }
+}
+
+async fn timezone_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+    if args.is_empty() {
+        let tz = app.agent.user_timezone(user_id).await?;
+        return Ok(i18n::timezone_current(lang, tz.name()));
+    }
+    match args.parse::<chrono_tz::Tz>() {
+        Ok(tz) => {
+            db::set_user_timezone(&app.db, user_id, tz.name()).await?;
+            Ok(i18n::timezone_set(lang, tz.name()))
+        }
+        Err(_) => Ok(i18n::timezone_invalid(lang).to_owned()),
     }
 }
 

@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
-
+/// Native Gemini API client, used for image generation.
 #[derive(Clone)]
 pub struct GeminiAPI {
     pub api_key: String,
@@ -12,22 +14,19 @@ impl GeminiAPI {
     pub fn new(api_key: String, model: String) -> Self {
         Self {
             api_key,
-            client: reqwest::Client::new(),
-            model
+            client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(120))
+                .build()
+                .expect("failed to build HTTP client"),
+            model,
         }
     }
 }
 
 #[derive(Serialize)]
-pub struct CompletionsRequest {
-    pub model: String,
-    pub body: GenerateContent
-}
-
-#[derive(Serialize)]
 pub struct GenerateContent {
     pub contents: Vec<Content>,
-    #[serde(skip_serializing_if = "Option::is_none", rename="generationConfig")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "generationConfig")]
     pub generation_config: Option<GenerationConfig>,
 }
 
@@ -37,59 +36,33 @@ pub struct GenerationConfig {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all="SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Modality {
-    ModalityUnspecified,
     Text,
     Image,
-    Video
 }
+
 #[derive(Serialize)]
 pub struct Content {
     pub parts: Vec<Part>,
-    pub role: Role
-}
-
-#[derive(Serialize, Debug)]
-pub struct InlineDataRequest {
-    #[serde(rename = "mimeType")]
-    pub mime_type: String,
-    pub data: String,
+    pub role: Role,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Part {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "inlineData")]
-    pub inline_data: Option<InlineDataRequest>,
+    pub text: String,
 }
 
 impl Part {
     pub fn text(text: &str) -> Self {
-        Self {
-            text: Some(text.into()),
-            inline_data: None
-        }
-    }
-    pub fn image(mime_type: &str, base64_data: &str) -> Self {
-        Self {
-            text: None,
-            inline_data: Some(
-                InlineDataRequest {
-                    mime_type: mime_type.into(),
-                    data: base64_data.into(),
-                }
-            )
-        }
+        Self { text: text.into() }
     }
 }
 
 #[derive(Serialize, Debug)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum Role {
     User,
-    Model
 }
 
 #[derive(Deserialize, Debug)]

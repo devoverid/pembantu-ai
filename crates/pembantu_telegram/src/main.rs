@@ -1,5 +1,5 @@
 use command::Command;
-use pembantu_core::provider::{ImageProvider, TextProvider};
+use pembantu_core::{llm::{LlmClient, LlmProvider}, provider::gemini::types::GeminiAPI};
 use secrecy::ExposeSecret;
 use teloxide::dispatching::UpdateFilterExt;
 use teloxide::prelude::*;
@@ -60,25 +60,21 @@ async fn main() {
     pretty_env_logger::init();
     let env = envy::from_env::<Config>().expect("Failed to parse env");
     // init providers
-    let text_provider = match env.provider_text_generation {
-        None => None,
-        Some(s) => Some(match s.as_str() {
-            "openrouter" => TextProvider::OpenRouter(env.openrouter_api_key.expose_secret().to_string(), env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
-            "gemini" => TextProvider::Gemini(env.gemini_api_key.expose_secret().to_string(), env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty")),
-            _ => panic!("Text generation model not supported. Available options: openrouter, gemini")
-        })
+    let model = env.model_text_generation.expect("MODEL_TEXT_GENERATION is empty");
+    let llm = match env.provider_text_generation.as_deref() {
+        Some("openrouter") => LlmClient::new(LlmProvider::OpenRouter, env.openrouter_api_key.expose_secret().to_string(), model),
+        Some("gemini") => LlmClient::new(LlmProvider::Gemini, env.gemini_api_key.expose_secret().to_string(), model),
+        _ => panic!("Text generation model not supported. Available options: openrouter, gemini")
     };
-    let image_provider = match env.provider_image_generation {
+    let image = match env.provider_image_generation.as_deref() {
         None => None,
-        Some(s) => Some(match s.as_str() {
-            "gemini" => ImageProvider::Gemini(env.gemini_api_key.expose_secret().to_string(), env.model_image_generation.expect("MODEL_IMAGE_GENERATION is empty")),
-            _ => panic!("Image generation model not supported. Available options: gemini")
-        })
+        Some("gemini") => Some(GeminiAPI::new(env.gemini_api_key.expose_secret().to_string(), env.model_image_generation.expect("MODEL_IMAGE_GENERATION is empty"))),
+        Some(_) => panic!("Image generation model not supported. Available options: gemini")
     };
 
 
     let teloxide_bot = Arc::new(teloxide::Bot::from_env());
-    let ai = pembantu_core::bot::Bot::new(text_provider, image_provider).unwrap();
+    let ai = pembantu_core::bot::Bot::new(llm, image);
     let bot_username = env::var("BOT_USERNAME").expect("BOT_USERNAME should be set");
     let conversation = conversation::Conversation::new(ai, teloxide_bot.clone());
 

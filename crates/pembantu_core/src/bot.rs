@@ -1,42 +1,29 @@
-use crate::{error::PembantuError, provider::{gemini::types::GeminiAPI, openrouter::types::OpenRouterAPI, ImageGenerationProvider, ImageProvider, TextGenerationProvider, TextProvider}};
+use serde_json::json;
+
+use crate::{error::PembantuError, llm::LlmClient, prompt, provider::gemini::types::GeminiAPI};
 
 pub struct Bot {
-    text_provider: Option<Box<dyn TextGenerationProvider>>,
-    image_provider: Option<Box<dyn ImageGenerationProvider>>
+    llm: LlmClient,
+    image: Option<GeminiAPI>,
 }
 
 impl Bot {
-    pub fn new(text_provider: Option<TextProvider>, image_provider: Option<ImageProvider>) -> Result<Self, PembantuError> {
-        let text_provider = match text_provider {
-            Some(text_provider) => match text_provider {
-                TextProvider::OpenRouter(api_key, model_name) => Some(Box::new(OpenRouterAPI::new(api_key, model_name)) as Box<dyn TextGenerationProvider>),
-                TextProvider::Gemini(api_key, model_name) => Some(Box::new(GeminiAPI::new(api_key, model_name)) as Box<dyn TextGenerationProvider>),
-            },
-            None => None
-        };
-        let image_provider = match image_provider {
-            Some(image_provider) => match image_provider {
-                ImageProvider::Gemini(api_key, model_name) => Some(Box::new(GeminiAPI::new(api_key, model_name)) as Box<dyn ImageGenerationProvider>),
-            },
-            None => None
-        };
-        Ok(Self { 
-            text_provider,   
-            image_provider 
-        })
+    pub fn new(llm: LlmClient, image: Option<GeminiAPI>) -> Self {
+        Self { llm, image }
     }
 
-    pub async fn generate_text(&self, prompt: String, image_urls: Option<Vec<String>>) -> Result<String, PembantuError> {
-        match &self.text_provider {
-            Some(provider) => provider.generate(prompt, image_urls).await,
-            None => Err(PembantuError::ProviderNotImplemented)
-        }
+    pub async fn generate_text(&self, prompt: String) -> Result<String, PembantuError> {
+        let messages = [
+            json!({"role": "system", "content": prompt::get_prompt()}),
+            json!({"role": "user", "content": prompt}),
+        ];
+        Ok(self.llm.complete(&messages, &[]).await?.content)
     }
 
     pub async fn generate_image(&self, prompt: String) -> Result<Vec<u8>, PembantuError> {
-        match &self.image_provider {
-            Some(provider) => provider.generate_image(prompt).await,
-            None => Err(PembantuError::ProviderNotImplemented)
+        match &self.image {
+            Some(image) => image.generate_image(&prompt).await,
+            None => Err(PembantuError::Config("image generation is not configured".into())),
         }
     }
 }

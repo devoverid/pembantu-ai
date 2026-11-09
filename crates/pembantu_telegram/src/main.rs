@@ -18,6 +18,7 @@ mod handlers;
 mod i18n;
 mod render;
 mod reply;
+mod scheduler;
 mod types;
 
 /// envy maps `KEY=` to `Some("")`; treat that as unset.
@@ -100,6 +101,7 @@ async fn main() {
     log::info!("Starting @{}", me.username());
 
     let app = Arc::new(App { bot: bot.clone(), agent, db, me });
+    tokio::spawn(scheduler::run(app.clone()));
     let handler = Update::filter_message().endpoint(handlers::handle_message);
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![app])

@@ -193,6 +193,23 @@ pub async fn clear_memories(pool: &PgPool, user_id: i64) -> Result<u64, Pembantu
     Ok(result.rows_affected())
 }
 
+/// The chat's `(kind, title)`.
+pub async fn get_chat(pool: &PgPool, id: i64) -> Result<Option<(String, Option<String>)>, PembantuError> {
+    Ok(sqlx::query_as("SELECT kind, title FROM chats WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?)
+}
+
+pub async fn get_user(pool: &PgPool, id: i64) -> Result<Option<UserInfo>, PembantuError> {
+    let row: Option<(i64, String, Option<String>, Option<String>)> =
+        sqlx::query_as("SELECT id, full_name, username, language_code FROM users WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
+    Ok(row.map(|(id, full_name, username, language_code)| UserInfo { id, full_name, username, language_code }))
+}
+
 pub struct NewTask<'a> {
     pub chat_id: i64,
     pub thread_id: Option<i32>,

@@ -13,6 +13,7 @@ pub mod media_kind;
 pub mod command;
 pub mod conversation;
 pub mod updates;
+pub mod render;
 pub mod types;
 
 struct Handler {

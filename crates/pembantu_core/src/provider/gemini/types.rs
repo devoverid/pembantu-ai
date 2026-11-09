@@ -94,39 +94,28 @@ pub enum Role {
 
 #[derive(Deserialize, Debug)]
 pub struct GenerateContentResponse {
+    #[serde(default)]
     pub candidates: Vec<Candidate>,
-    #[serde(rename = "usageMetadata")]
-    pub usage_metadata: UsageMetadata,
-    #[serde(rename = "modelVersion")]
-    pub model_version: String,
-    #[serde(rename = "responseId")]
-    pub response_id: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Candidate {
-    pub content: ContentResponse,
+    pub content: Option<ContentResponse>,
     #[serde(rename = "finishReason")]
-    pub finish_reason: String,
-    #[serde(rename = "avgLogprobs", skip_serializing_if = "Option::is_none")]
-    pub avg_logprobs: Option<f64>,
-    pub index: Option<i32>,
+    pub finish_reason: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ContentResponse {
+    #[serde(default)]
     pub parts: Vec<ContentPart>,
-    pub role: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ContentPart {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "inlineData")]
+    #[serde(rename = "inlineData")]
     pub inline_data: Option<InlineData>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "thoughtSignature")]
-    pub thought_signature: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -134,27 +123,4 @@ pub struct InlineData {
     #[serde(rename = "mimeType")]
     pub mime_type: String,
     pub data: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct UsageMetadata {
-    #[serde(rename = "promptTokenCount")]
-    pub prompt_token_count: i32,
-    #[serde(rename = "candidatesTokenCount")]
-    pub candidates_token_count: i32,
-    #[serde(rename = "totalTokenCount")]
-    pub total_token_count: i32,
-    #[serde(rename = "promptTokensDetails")]
-    pub prompt_tokens_details: Vec<TokenDetail>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "candidatesTokensDetails")]
-    pub candidates_tokens_details: Option<Vec<TokenDetail>>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "thoughtsTokenCount")]
-    pub thoughts_token_count: Option<i32>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct TokenDetail {
-    pub modality: String,
-    #[serde(rename = "tokenCount")]
-    pub token_count: i32,
 }

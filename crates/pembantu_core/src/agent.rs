@@ -166,7 +166,7 @@ impl Agent {
     }
 
     /// The user's saved timezone, or the default when unset or invalid.
-    async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
+    pub async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
         Ok(db::user_timezone(&self.db, user_id)
             .await?
             .and_then(|tz| tz.parse().ok())

@@ -11,4 +11,6 @@ pub enum Command {
     Ask(String),
     #[command(description = "Buat gambar / Generate an image")]
     Image(String),
+    #[command(description = "Ingatan saya tentangmu / What I remember about you: /memory [clear | forget <id>]")]
+    Memory(String),
 }

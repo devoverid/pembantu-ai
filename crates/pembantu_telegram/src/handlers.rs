@@ -3,6 +3,7 @@ use std::sync::Arc;
 use pembantu_core::{
     agent::{AgentRequest, ChatInfo, ChatKind, ImageInput, Trigger, UserInfo},
     db::{self, NewMessage},
+    error::PembantuError,
     truncate_chars,
 };
 use teloxide::{
@@ -90,10 +91,8 @@ fn describe(msg: &Message) -> Option<String> {
         format!("[document: {}] {caption}", doc.file_name.as_deref().unwrap_or("file"))
     } else if msg.voice().is_some() {
         "[voice message]".to_owned()
-    } else if let Some(sticker) = msg.sticker() {
-        format!("[sticker {}]", sticker.emoji.as_deref().unwrap_or_default())
     } else {
-        return None;
+        format!("[sticker {}]", msg.sticker()?.emoji.as_deref().unwrap_or_default())
     };
     Some(text.trim().to_owned())
 }
@@ -146,9 +145,43 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
             }
         }
         Command::Image(prompt) => generate_image(&app, &msg, prompt.trim(), lang).await,
+        Command::Memory(args) => {
+            let text = match msg.from.as_ref() {
+                Some(user) => memory_command(&app, user.id.0 as i64, args.trim(), lang).await.unwrap_or_else(|e| {
+                    log::error!("/memory failed: {e}");
+                    i18n::error(lang).to_owned()
+                }),
+                None => i18n::error(lang).to_owned(),
+            };
+            reply::send_text(&app, target, truncate_chars(&text, 4000), false).await.map(drop)
+        }
     };
     if let Err(e) = result {
         log::error!("failed to handle command in chat {}: {e}", target.chat_id);
+    }
+}
+
+async fn memory_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+    let mut words = args.split_whitespace();
+    match (words.next(), words.next(), words.next()) {
+        (None, _, _) => {
+            let memories = db::list_memories(&app.db, user_id, 200).await?;
+            if memories.is_empty() {
+                return Ok(i18n::memory_empty(lang).to_owned());
+            }
+            let mut text = i18n::memory_header(lang).to_owned();
+            for (id, content) in memories {
+                text.push_str(&format!("\n#{id} {content}"));
+            }
+            Ok(text)
+        }
+        (Some("clear"), None, _) => Ok(i18n::memory_cleared(lang, db::clear_memories(&app.db, user_id).await?)),
+        (Some("forget"), Some(id), None) => match id.trim_start_matches('#').parse::<i64>() {
+            Ok(id) if db::delete_memory(&app.db, user_id, id).await? => Ok(i18n::memory_forgotten(lang, id)),
+            Ok(id) => Ok(i18n::memory_not_found(lang, id)),
+            Err(_) => Ok(i18n::usage_memory(lang).to_owned()),
+        },
+        _ => Ok(i18n::usage_memory(lang).to_owned()),
     }
 }
 

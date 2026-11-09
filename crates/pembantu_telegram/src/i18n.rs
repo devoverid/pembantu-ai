@@ -48,10 +48,12 @@ macro_rules! help_id {
             "Yang bisa saya lakukan:\n",
             "• Ngobrol dan menjawab pertanyaan\n",
             "• Memahami foto yang kamu kirim\n",
-            "• Di grup: mention saya, balas pesan saya, atau awali pesan dengan \"AI,\"\n\n",
+            "• Di grup: mention saya, balas pesan saya, atau awali pesan dengan \"AI,\"\n",
+            "• Mengingat isi obrolan grup dan fakta tentang kamu\n\n",
             "Perintah:\n",
             "/ask <pertanyaan> — tanya apa saja\n",
             "/image <deskripsi> — buat gambar\n",
+            "/memory — lihat atau hapus hal yang saya ingat tentangmu\n",
             "/help — bantuan"
         )
     };
@@ -63,10 +65,12 @@ macro_rules! help_en {
             "What I can do:\n",
             "• Chat and answer questions\n",
             "• Understand photos you send\n",
-            "• In groups: mention me, reply to my message, or start a message with \"AI,\"\n\n",
+            "• In groups: mention me, reply to my message, or start a message with \"AI,\"\n",
+            "• Remember the group conversation and facts about you\n\n",
             "Commands:\n",
             "/ask <question> — ask anything\n",
             "/image <description> — generate an image\n",
+            "/memory — see or delete what I remember about you\n",
             "/help — help"
         )
     };
@@ -103,5 +107,47 @@ pub fn usage_ask(lang: Lang) -> &'static str {
     match lang {
         Lang::Id => "Cara pakai: /ask <pertanyaan>, atau balas sebuah pesan dengan /ask",
         Lang::En => "Usage: /ask <question>, or reply to a message with /ask",
+    }
+}
+
+pub fn usage_memory(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Cara pakai: /memory, /memory forget <id>, atau /memory clear",
+        Lang::En => "Usage: /memory, /memory forget <id>, or /memory clear",
+    }
+}
+
+pub fn memory_empty(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Saya belum mengingat apa pun tentangmu.",
+        Lang::En => "I don't remember anything about you yet.",
+    }
+}
+
+pub fn memory_header(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Yang saya ingat tentangmu (hapus dengan /memory forget <id>):",
+        Lang::En => "What I remember about you (delete with /memory forget <id>):",
+    }
+}
+
+pub fn memory_cleared(lang: Lang, count: u64) -> String {
+    match lang {
+        Lang::Id => format!("{count} ingatan dihapus."),
+        Lang::En => format!("Deleted {count} memories."),
+    }
+}
+
+pub fn memory_forgotten(lang: Lang, id: i64) -> String {
+    match lang {
+        Lang::Id => format!("Ingatan #{id} dihapus."),
+        Lang::En => format!("Forgot memory #{id}."),
+    }
+}
+
+pub fn memory_not_found(lang: Lang, id: i64) -> String {
+    match lang {
+        Lang::Id => format!("Ingatan #{id} tidak ditemukan."),
+        Lang::En => format!("Memory #{id} not found."),
     }
 }

@@ -38,6 +38,10 @@ OPENROUTER_API_KEY=
 GEMINI_API_KEY=
 ```
    For group chats, disable privacy mode in @BotFather (`/setprivacy` → Disable) so the bot can read group messages.
+4. Start Postgres (set `POSTGRES_PORT` and `DATABASE_URL` if 5432 is taken)
+```
+docker compose up -d db
+```
 5. Run the telegram bot
 ```
 cargo run -p pembantu_telegram

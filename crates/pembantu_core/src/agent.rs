@@ -10,7 +10,7 @@ use crate::{
     llm::{AssistantReply, LlmClient},
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
     provider::gemini::types::GeminiAPI,
-    tools::{ToolContext, Tools},
+    tools::{web::TavilyClient, ToolContext, Tools},
     truncate_chars,
 };
 
@@ -87,8 +87,14 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(db: PgPool, llm: LlmClient, image: Option<GeminiAPI>, default_timezone: chrono_tz::Tz) -> Self {
-        Self { db, llm, tools: Tools::new(image), default_timezone }
+    pub fn new(
+        db: PgPool,
+        llm: LlmClient,
+        search: Option<TavilyClient>,
+        image: Option<GeminiAPI>,
+        default_timezone: chrono_tz::Tz,
+    ) -> Self {
+        Self { db, llm, tools: Tools::new(search, image), default_timezone }
     }
 
     pub async fn run(

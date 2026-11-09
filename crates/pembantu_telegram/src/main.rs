@@ -5,6 +5,7 @@ use pembantu_core::{
     db::{self, PgPool},
     llm::{LlmClient, LlmProvider},
     provider::gemini::types::GeminiAPI,
+    tools::web::TavilyClient,
 };
 use secrecy::{ExposeSecret, SecretString};
 use teloxide::{prelude::*, utils::command::BotCommands};
@@ -69,7 +70,12 @@ fn build_agent(config: Config, db: PgPool) -> Agent {
         )
     });
 
-    Agent::new(db, llm, image, timezone)
+    let search = non_empty_secret(config.tavily_api_key).map(|key| TavilyClient::new(key.expose_secret().to_owned()));
+    if search.is_none() {
+        log::warn!("TAVILY_API_KEY is not set; web_search and read_webpage are disabled");
+    }
+
+    Agent::new(db, llm, search, image, timezone)
 }
 
 #[tokio::main]

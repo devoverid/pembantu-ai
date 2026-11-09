@@ -4,6 +4,9 @@ pub mod forget;
 pub mod read_chat_history;
 pub mod remember;
 pub mod set_timezone;
+pub mod web;
+
+use web::{read_webpage, web_search, TavilyClient};
 
 use async_openai::types::chat::{ChatCompletionTool, ChatCompletionTools, FunctionObject};
 use chrono::{DateTime, Utc};
@@ -32,12 +35,13 @@ pub struct ToolContext<'a> {
 }
 
 pub struct Tools {
+    search: Option<TavilyClient>,
     image: Option<GeminiAPI>,
 }
 
 impl Tools {
-    pub fn new(image: Option<GeminiAPI>) -> Self {
-        Self { image }
+    pub fn new(search: Option<TavilyClient>, image: Option<GeminiAPI>) -> Self {
+        Self { search, image }
     }
 
     pub fn image(&self) -> Option<&GeminiAPI> {
@@ -46,7 +50,11 @@ impl Tools {
 
     /// Names of the tools available for this trigger.
     pub fn names(&self, _trigger: &Trigger) -> Vec<&'static str> {
-        vec![remember::NAME, forget::NAME, read_chat_history::NAME, set_timezone::NAME]
+        let mut names = vec![remember::NAME, forget::NAME, read_chat_history::NAME, set_timezone::NAME];
+        if self.search.is_some() {
+            names.extend([web_search::NAME, read_webpage::NAME]);
+        }
+        names
     }
 
     pub fn definitions(&self, trigger: &Trigger) -> Vec<ChatCompletionTools> {
@@ -71,11 +79,13 @@ impl Tools {
     }
 
     async fn dispatch(&self, name: &str, args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
-        match name {
-            remember::NAME => remember::run(args, ctx).await,
-            forget::NAME => forget::run(args, ctx).await,
-            read_chat_history::NAME => read_chat_history::run(args, ctx).await,
-            set_timezone::NAME => set_timezone::run(args, ctx).await,
+        match (name, &self.search) {
+            (remember::NAME, _) => remember::run(args, ctx).await,
+            (forget::NAME, _) => forget::run(args, ctx).await,
+            (read_chat_history::NAME, _) => read_chat_history::run(args, ctx).await,
+            (set_timezone::NAME, _) => set_timezone::run(args, ctx).await,
+            (web_search::NAME, Some(client)) => web_search::run(args, client).await,
+            (read_webpage::NAME, Some(client)) => read_webpage::run(args, client).await,
             _ => Err(PembantuError::Generate(format!("unknown tool: {name}"))),
         }
     }
@@ -87,6 +97,8 @@ fn definition(name: &str) -> Option<ChatCompletionTools> {
         forget::NAME => forget::definition(),
         read_chat_history::NAME => read_chat_history::definition(),
         set_timezone::NAME => set_timezone::definition(),
+        web_search::NAME => web_search::definition(),
+        read_webpage::NAME => read_webpage::definition(),
         _ => return None,
     })
 }

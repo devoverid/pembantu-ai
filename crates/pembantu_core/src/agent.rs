@@ -7,15 +7,17 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     db::{self, PgPool, StoredMessage},
     error::PembantuError,
-    llm::LlmClient,
+    llm::{AssistantReply, LlmClient},
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
     provider::gemini::types::GeminiAPI,
+    tools::{web::TavilyClient, ToolContext, Tools},
     truncate_chars,
 };
 
 const HISTORY_LIMIT: i64 = 30;
 const HISTORY_TEXT_CHARS: usize = 2000;
 const MEMORY_LIMIT: i64 = 50;
+const MAX_STEPS: usize = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChatKind {
@@ -80,19 +82,25 @@ pub enum AgentEvent {
 pub struct Agent {
     db: PgPool,
     llm: LlmClient,
-    image: Option<GeminiAPI>,
+    tools: Tools,
     default_timezone: chrono_tz::Tz,
 }
 
 impl Agent {
-    pub fn new(db: PgPool, llm: LlmClient, image: Option<GeminiAPI>, default_timezone: chrono_tz::Tz) -> Self {
-        Self { db, llm, image, default_timezone }
+    pub fn new(
+        db: PgPool,
+        llm: LlmClient,
+        search: Option<TavilyClient>,
+        image: Option<GeminiAPI>,
+        default_timezone: chrono_tz::Tz,
+    ) -> Self {
+        Self { db, llm, tools: Tools::new(search, image), default_timezone }
     }
 
     pub async fn run(
         &self,
         req: AgentRequest,
-        _events: UnboundedSender<AgentEvent>,
+        events: UnboundedSender<AgentEvent>,
     ) -> Result<AgentOutput, PembantuError> {
         db::upsert_user(&self.db, &req.user).await?;
         let timezone = self.user_timezone(req.user.id).await?;
@@ -105,13 +113,15 @@ impl Agent {
         let history = db::recent_messages(&self.db, req.chat.id, req.chat.thread_id, exclude, HISTORY_LIMIT).await?;
         // Only the requester's memories, also in groups, so nobody else's facts leak.
         let memories = db::list_memories(&self.db, req.user.id, MEMORY_LIMIT).await?;
+        let tool_names = self.tools.names(&req.trigger);
+        let definitions = self.tools.definitions(&req.trigger);
         let system = system_prompt(&PromptContext {
             now_local: Utc::now().with_timezone(&timezone),
             timezone,
             chat: &req.chat,
             user: &req.user,
             memories: &memories,
-            tool_names: &[],
+            tool_names: &tool_names,
             language,
         });
         let mut messages = Vec::with_capacity(history.len() + 2);
@@ -119,9 +129,40 @@ impl Agent {
         messages.extend(history.iter().map(history_message));
         messages.push(user_message(&req));
 
-        let reply = self.llm.complete(&messages, &[]).await?;
-        let text = if reply.content.trim().is_empty() { "…".to_owned() } else { reply.content };
-        Ok(AgentOutput { text, attachments: Vec::new() })
+        let mut attachments = Vec::new();
+        let mut final_text = None;
+        for _ in 0..MAX_STEPS {
+            let AssistantReply { raw_message, content, tool_calls } =
+                self.llm.complete(&messages, &definitions).await?;
+            messages.push(raw_message);
+            if tool_calls.is_empty() {
+                final_text = Some(content);
+                break;
+            }
+            for call in tool_calls {
+                let _ = events.send(AgentEvent::ToolStarted { name: call.name.clone() });
+                let mut ctx = ToolContext {
+                    db: &self.db,
+                    chat: &req.chat,
+                    user: &req.user,
+                    timezone,
+                    now: Utc::now(),
+                    trigger: &req.trigger,
+                    attachments: &mut attachments,
+                };
+                let result = self.tools.execute(&call.name, &call.arguments, &mut ctx).await;
+                messages.push(json!({"role": "tool", "tool_call_id": call.id, "content": result}));
+            }
+        }
+
+        let text = match final_text {
+            None => "I couldn't finish this within the step limit.".to_owned(),
+            // An image-only answer needs no text; reply delivery handles the empty case.
+            Some(text) if text.trim().is_empty() && !attachments.is_empty() => String::new(),
+            Some(text) if text.trim().is_empty() => "…".to_owned(),
+            Some(text) => text,
+        };
+        Ok(AgentOutput { text, attachments })
     }
 
     /// The user's saved timezone, or the default when unset or invalid.
@@ -133,7 +174,7 @@ impl Agent {
     }
 
     pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, PembantuError> {
-        match &self.image {
+        match self.tools.image() {
             Some(image) => image.generate_image(prompt).await,
             None => Err(PembantuError::Config("image generation is not configured".into())),
         }

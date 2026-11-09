@@ -14,6 +14,7 @@ pub struct Config {
     pub model_image_generation: Option<String>,
     pub openrouter_api_key: Option<SecretString>,
     pub gemini_api_key: Option<SecretString>,
+    pub tavily_api_key: Option<SecretString>,
     #[serde(default = "default_timezone")]
     pub default_timezone: String,
 }

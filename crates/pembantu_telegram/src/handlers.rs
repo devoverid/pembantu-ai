@@ -155,6 +155,21 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
             };
             reply::send_text(&app, target, truncate_chars(&text, 4000), false).await.map(drop)
         }
+        Command::Summary(args) => {
+            let args = args.trim();
+            let hours = if args.is_empty() { Some(24) } else { args.parse::<u32>().ok().filter(|h| (1..=168).contains(h)) };
+            match hours {
+                Some(hours) => {
+                    let prompt = format!(
+                        "Summarize this chat from the last {hours} hours using read_chat_history. \
+                         Group by topic, then list decisions and open action items with owners."
+                    );
+                    respond_to(app, msg, prompt).await;
+                    Ok(())
+                }
+                None => reply::send_text(&app, target, i18n::usage_summary(lang), false).await.map(drop),
+            }
+        }
     };
     if let Err(e) = result {
         log::error!("failed to handle command in chat {}: {e}", target.chat_id);

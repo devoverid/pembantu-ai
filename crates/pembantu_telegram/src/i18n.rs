@@ -49,11 +49,14 @@ macro_rules! help_id {
             "• Ngobrol dan menjawab pertanyaan\n",
             "• Memahami foto yang kamu kirim\n",
             "• Di grup: mention saya, balas pesan saya, atau awali pesan dengan \"AI,\"\n",
-            "• Mengingat isi obrolan grup dan fakta tentang kamu\n\n",
+            "• Mengingat isi obrolan grup dan fakta tentang kamu (cukup bilang \"ingat bahwa …\")\n",
+            "• Mencari di web dan membaca halaman web\n",
+            "• Membuat gambar\n\n",
             "Perintah:\n",
             "/ask <pertanyaan> — tanya apa saja\n",
             "/image <deskripsi> — buat gambar\n",
             "/memory — lihat atau hapus hal yang saya ingat tentangmu\n",
+            "/summary [jam] — ringkas obrolan (default 24 jam)\n",
             "/help — bantuan"
         )
     };
@@ -66,11 +69,14 @@ macro_rules! help_en {
             "• Chat and answer questions\n",
             "• Understand photos you send\n",
             "• In groups: mention me, reply to my message, or start a message with \"AI,\"\n",
-            "• Remember the group conversation and facts about you\n\n",
+            "• Remember the group conversation and facts about you (just say \"remember that …\")\n",
+            "• Search the web and read web pages\n",
+            "• Generate images\n\n",
             "Commands:\n",
             "/ask <question> — ask anything\n",
             "/image <description> — generate an image\n",
             "/memory — see or delete what I remember about you\n",
+            "/summary [hours] — summarize the chat (default 24 hours)\n",
             "/help — help"
         )
     };
@@ -114,6 +120,13 @@ pub fn usage_memory(lang: Lang) -> &'static str {
     match lang {
         Lang::Id => "Cara pakai: /memory, /memory forget <id>, atau /memory clear",
         Lang::En => "Usage: /memory, /memory forget <id>, or /memory clear",
+    }
+}
+
+pub fn usage_summary(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Cara pakai: /summary [jam, 1–168]",
+        Lang::En => "Usage: /summary [hours, 1–168]",
     }
 }
 

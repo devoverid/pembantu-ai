@@ -102,6 +102,10 @@ pub fn system_prompt(p: &PromptContext) -> String {
     }
     if !p.tool_names.is_empty() {
         let _ = writeln!(s, "Available tools: {}.", p.tool_names.join(", "));
+        s.push_str(
+            "Use read_chat_history before summarizing. \
+             When the user states a lasting personal fact or preference, call remember.\n",
+        );
     }
     // Last, so it outweighs the Indonesian name, the timezone and earlier replies.
     let _ = write!(

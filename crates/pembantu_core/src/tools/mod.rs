@@ -4,9 +4,11 @@ pub mod forget;
 pub mod generate_image;
 pub mod read_chat_history;
 pub mod remember;
+pub mod scheduling;
 pub mod set_timezone;
 pub mod web;
 
+use scheduling::{cancel_scheduled_task, create_reminder, list_scheduled_tasks, schedule_agent_task};
 use web::{read_webpage, web_search, TavilyClient};
 
 use async_openai::types::chat::{ChatCompletionTool, ChatCompletionTools, FunctionObject};
@@ -49,9 +51,19 @@ impl Tools {
         self.image.as_ref()
     }
 
-    /// Names of the tools available for this trigger.
-    pub fn names(&self, _trigger: &Trigger) -> Vec<&'static str> {
-        let mut names = vec![remember::NAME, forget::NAME, read_chat_history::NAME, set_timezone::NAME];
+    /// Names of the tools available for this trigger. Scheduled runs can't create new tasks.
+    pub fn names(&self, trigger: &Trigger) -> Vec<&'static str> {
+        let mut names = vec![
+            remember::NAME,
+            forget::NAME,
+            read_chat_history::NAME,
+            set_timezone::NAME,
+            list_scheduled_tasks::NAME,
+            cancel_scheduled_task::NAME,
+        ];
+        if matches!(trigger, Trigger::UserMessage { .. }) {
+            names.extend([create_reminder::NAME, schedule_agent_task::NAME]);
+        }
         if self.search.is_some() {
             names.extend([web_search::NAME, read_webpage::NAME]);
         }
@@ -88,6 +100,10 @@ impl Tools {
             (forget::NAME, _) => forget::run(args, ctx).await,
             (read_chat_history::NAME, _) => read_chat_history::run(args, ctx).await,
             (set_timezone::NAME, _) => set_timezone::run(args, ctx).await,
+            (create_reminder::NAME, _) => create_reminder::run(args, ctx).await,
+            (schedule_agent_task::NAME, _) => schedule_agent_task::run(args, ctx).await,
+            (list_scheduled_tasks::NAME, _) => list_scheduled_tasks::run(args, ctx).await,
+            (cancel_scheduled_task::NAME, _) => cancel_scheduled_task::run(args, ctx).await,
             (web_search::NAME, Some(client)) => web_search::run(args, client).await,
             (read_webpage::NAME, Some(client)) => read_webpage::run(args, client).await,
             (generate_image::NAME, _) => match &self.image {
@@ -105,6 +121,10 @@ fn definition(name: &str) -> Option<ChatCompletionTools> {
         forget::NAME => forget::definition(),
         read_chat_history::NAME => read_chat_history::definition(),
         set_timezone::NAME => set_timezone::definition(),
+        create_reminder::NAME => create_reminder::definition(),
+        schedule_agent_task::NAME => schedule_agent_task::definition(),
+        list_scheduled_tasks::NAME => list_scheduled_tasks::definition(),
+        cancel_scheduled_task::NAME => cancel_scheduled_task::definition(),
         web_search::NAME => web_search::definition(),
         read_webpage::NAME => read_webpage::definition(),
         generate_image::NAME => generate_image::definition(),

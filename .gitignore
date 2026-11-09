@@ -1,3 +1,4 @@
 /target
 .env
 crates/*/target
+.DS_Store

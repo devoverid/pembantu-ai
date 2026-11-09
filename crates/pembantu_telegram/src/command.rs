@@ -13,4 +13,6 @@ pub enum Command {
     Image(String),
     #[command(description = "Ingatan saya tentangmu / What I remember about you: /memory [clear | forget <id>]")]
     Memory(String),
+    #[command(description = "Ringkas obrolan / Summarize the chat: /summary [jam/hours, default 24]")]
+    Summary(String),
 }

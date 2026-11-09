@@ -3,7 +3,7 @@ use pembantu_core::provider::{ImageProvider, TextProvider};
 use secrecy::ExposeSecret;
 use teloxide::dispatching::UpdateFilterExt;
 use teloxide::prelude::*;
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use std::env;
 use std::sync::Arc;
 

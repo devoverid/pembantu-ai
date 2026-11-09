@@ -1,7 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
+use chrono::Utc;
 use pembantu_core::{
     agent::{AgentEvent, AgentRequest, Attachment},
+    db::{self, NewMessage},
     truncate_chars,
 };
 use teloxide::{
@@ -48,16 +50,37 @@ pub async fn respond(app: Arc<App>, req: AgentRequest, target: ReplyTarget, lang
     let typing = spawn_typing(app.bot.clone(), target);
     let result = deliver(&app, req, target, lang).await;
     typing.abort();
-    match result {
-        Ok(id) => id,
+    let (id, text) = match result {
+        Ok(Some(sent)) => sent,
+        Ok(None) => return None,
         Err(e) => {
             log::error!("failed to deliver reply in chat {}: {e}", target.chat_id);
-            None
+            return None;
         }
+    };
+    let row = NewMessage {
+        chat_id: target.chat_id.0,
+        telegram_message_id: id.0,
+        thread_id: target.thread_id.map(|t| t.0 .0),
+        user_id: None,
+        role: "assistant",
+        text: &text,
+        reply_to_telegram_message_id: target.reply_to.map(|m| m.0),
+        created_at: Utc::now(),
+    };
+    if let Err(e) = db::insert_message(&app.db, &row).await {
+        log::error!("failed to store reply in chat {}: {e}", target.chat_id);
     }
+    Some(id)
 }
 
-async fn deliver(app: &App, req: AgentRequest, target: ReplyTarget, lang: Lang) -> Result<Option<MessageId>, RequestError> {
+/// Returns the first message carrying the answer and the text to remember it by.
+async fn deliver(
+    app: &App,
+    req: AgentRequest,
+    target: ReplyTarget,
+    lang: Lang,
+) -> Result<Option<(MessageId, String)>, RequestError> {
     let placeholder = send_text(app, target, i18n::thinking(lang), false).await?;
 
     let (tx, mut rx) = mpsc::unbounded_channel();
@@ -99,6 +122,13 @@ async fn deliver(app: &App, req: AgentRequest, target: ReplyTarget, lang: Lang) 
         }
     }
 
+    let stored_text = if !chunks.is_empty() {
+        output.text
+    } else if let Some(Attachment::Image { caption, .. }) = output.attachments.first() {
+        format!("[image] {caption}")
+    } else {
+        "…".to_owned()
+    };
     let has_attachments = !output.attachments.is_empty();
     for attachment in output.attachments {
         match attachment {
@@ -127,7 +157,7 @@ async fn deliver(app: &App, req: AgentRequest, target: ReplyTarget, lang: Lang) 
             first_id = Some(placeholder.id);
         }
     }
-    Ok(first_id)
+    Ok(first_id.map(|id| (id, stored_text)))
 }
 
 fn spawn_typing(bot: Bot, target: ReplyTarget) -> JoinHandle<()> {

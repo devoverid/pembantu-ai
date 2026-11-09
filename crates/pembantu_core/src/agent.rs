@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
+    db::PgPool,
     error::PembantuError,
     llm::LlmClient,
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
@@ -71,14 +72,15 @@ pub enum AgentEvent {
 }
 
 pub struct Agent {
+    db: PgPool,
     llm: LlmClient,
     image: Option<GeminiAPI>,
     default_timezone: chrono_tz::Tz,
 }
 
 impl Agent {
-    pub fn new(llm: LlmClient, image: Option<GeminiAPI>, default_timezone: chrono_tz::Tz) -> Self {
-        Self { llm, image, default_timezone }
+    pub fn new(db: PgPool, llm: LlmClient, image: Option<GeminiAPI>, default_timezone: chrono_tz::Tz) -> Self {
+        Self { db, llm, image, default_timezone }
     }
 
     pub async fn run(

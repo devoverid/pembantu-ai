@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use pembantu_core::{
     agent::Agent,
+    db::{self, PgPool},
     llm::{LlmClient, LlmProvider},
     provider::gemini::types::GeminiAPI,
 };
@@ -27,7 +28,7 @@ fn non_empty_secret(value: Option<SecretString>) -> Option<SecretString> {
     value.filter(|v| !v.expose_secret().trim().is_empty())
 }
 
-fn build_agent(config: Config) -> Agent {
+fn build_agent(config: Config, db: PgPool) -> Agent {
     let openrouter_key = non_empty_secret(config.openrouter_api_key);
     let gemini_key = non_empty_secret(config.gemini_api_key);
     let model = non_empty(Some(config.model_text_generation)).expect("MODEL_TEXT_GENERATION is required");
@@ -68,7 +69,7 @@ fn build_agent(config: Config) -> Agent {
         )
     });
 
-    Agent::new(llm, image, timezone)
+    Agent::new(db, llm, image, timezone)
 }
 
 #[tokio::main]
@@ -78,7 +79,10 @@ async fn main() {
     let config = envy::from_env::<Config>().expect("failed to read configuration from the environment");
 
     let bot = Bot::new(config.teloxide_token.expose_secret());
-    let agent = build_agent(config);
+    let db = db::connect(config.database_url.expose_secret())
+        .await
+        .unwrap_or_else(|e| panic!("failed to connect to DATABASE_URL: {e}"));
+    let agent = build_agent(config, db.clone());
 
     let me = bot.get_me().await.expect("getMe failed; check TELOXIDE_TOKEN");
     if let Err(e) = bot.set_my_commands(Command::bot_commands()).await {
@@ -89,7 +93,7 @@ async fn main() {
     }
     log::info!("Starting @{}", me.username());
 
-    let app = Arc::new(App { bot: bot.clone(), agent, me });
+    let app = Arc::new(App { bot: bot.clone(), agent, db, me });
     let handler = Update::filter_message().endpoint(handlers::handle_message);
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![app])

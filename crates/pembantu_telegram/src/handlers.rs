@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use pembantu_core::{
     agent::{AgentRequest, ChatInfo, ChatKind, ImageInput, Trigger, UserInfo},
+    db::{self, NewMessage},
     truncate_chars,
 };
 use teloxide::{
@@ -19,9 +20,13 @@ use crate::{
     reply::{self, ReplyTarget},
 };
 
-/// Entry point for every message update. Long work is spawned so that teloxide's per-chat
-/// sequential dispatch keeps ingesting updates while the agent runs.
+/// Entry point for every message update. Every message is stored first (for chat context);
+/// long work is spawned so that teloxide's per-chat sequential dispatch keeps ingesting updates
+/// while the agent runs.
 pub async fn handle_message(app: Arc<App>, msg: Message) -> ResponseResult<()> {
+    if let Err(e) = store_incoming(&app, &msg).await {
+        log::error!("failed to store message in chat {}: {e}", msg.chat.id);
+    }
     let Some(from) = msg.from.as_ref() else {
         return Ok(());
     };
@@ -36,6 +41,61 @@ pub async fn handle_message(app: Arc<App>, msg: Message) -> ResponseResult<()> {
         tokio::spawn(respond_to(app, msg, text));
     }
     Ok(())
+}
+
+fn chat_kind(chat: &teloxide::types::Chat) -> &'static str {
+    if chat.is_private() {
+        "private"
+    } else if chat.is_supergroup() {
+        "supergroup"
+    } else if chat.is_group() {
+        "group"
+    } else {
+        "channel"
+    }
+}
+
+async fn store_incoming(app: &App, msg: &Message) -> Result<(), pembantu_core::error::PembantuError> {
+    let user = msg.from.as_ref().map(user_info);
+    if let Some(user) = &user {
+        db::upsert_user(&app.db, user).await?;
+    }
+    db::upsert_chat(&app.db, msg.chat.id.0, chat_kind(&msg.chat), msg.chat.title()).await?;
+    let Some(text) = describe(msg) else {
+        return Ok(());
+    };
+    let row = NewMessage {
+        chat_id: msg.chat.id.0,
+        telegram_message_id: msg.id.0,
+        thread_id: reply::topic_thread(msg).map(|t| t.0 .0),
+        user_id: user.map(|u| u.id),
+        role: "user",
+        text: &text,
+        reply_to_telegram_message_id: msg.reply_to_message().map(|r| r.id.0),
+        created_at: msg.date,
+    };
+    db::insert_message(&app.db, &row).await
+}
+
+/// A text rendering of a message for chat history, or `None` for kinds not worth storing.
+fn describe(msg: &Message) -> Option<String> {
+    let caption = msg.caption().unwrap_or_default();
+    let text = if let Some(text) = msg.text() {
+        text.to_owned()
+    } else if msg.photo().is_some() {
+        format!("[photo] {caption}")
+    } else if msg.video().is_some() {
+        format!("[video] {caption}")
+    } else if let Some(doc) = msg.document() {
+        format!("[document: {}] {caption}", doc.file_name.as_deref().unwrap_or("file"))
+    } else if msg.voice().is_some() {
+        "[voice message]".to_owned()
+    } else if let Some(sticker) = msg.sticker() {
+        format!("[sticker {}]", sticker.emoji.as_deref().unwrap_or_default())
+    } else {
+        return None;
+    };
+    Some(text.trim().to_owned())
 }
 
 fn should_respond(app: &App, msg: &Message) -> bool {

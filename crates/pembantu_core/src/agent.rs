@@ -6,7 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     error::PembantuError,
     llm::LlmClient,
-    prompt::{system_prompt, PromptContext},
+    prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
     provider::gemini::types::GeminiAPI,
 };
 
@@ -87,6 +87,8 @@ impl Agent {
         _events: UnboundedSender<AgentEvent>,
     ) -> Result<AgentOutput, PembantuError> {
         let timezone = self.default_timezone;
+        let language = detect_language(&req.text)
+            .unwrap_or_else(|| ReplyLanguage::from_code(req.user.language_code.as_deref()));
         let system = system_prompt(&PromptContext {
             now_local: Utc::now().with_timezone(&timezone),
             timezone,
@@ -94,6 +96,7 @@ impl Agent {
             user: &req.user,
             memories: &[],
             tool_names: &[],
+            language,
         });
         let messages = [json!({"role": "system", "content": system}), user_message(&req)];
         let reply = self.llm.complete(&messages, &[]).await?;

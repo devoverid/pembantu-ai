@@ -1,15 +1,21 @@
 use base64::prelude::*;
 use chrono::Utc;
+use chrono_tz::Tz;
 use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    db::PgPool,
+    db::{self, PgPool, StoredMessage},
     error::PembantuError,
     llm::LlmClient,
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
     provider::gemini::types::GeminiAPI,
+    truncate_chars,
 };
+
+const HISTORY_LIMIT: i64 = 30;
+const HISTORY_TEXT_CHARS: usize = 2000;
+const MEMORY_LIMIT: i64 = 50;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChatKind {
@@ -88,22 +94,42 @@ impl Agent {
         req: AgentRequest,
         _events: UnboundedSender<AgentEvent>,
     ) -> Result<AgentOutput, PembantuError> {
-        let timezone = self.default_timezone;
+        db::upsert_user(&self.db, &req.user).await?;
+        let timezone = self.user_timezone(req.user.id).await?;
         let language = detect_language(&req.text)
             .unwrap_or_else(|| ReplyLanguage::from_code(req.user.language_code.as_deref()));
+        let exclude = match req.trigger {
+            Trigger::UserMessage { telegram_message_id } => Some(telegram_message_id),
+            Trigger::ScheduledTask { .. } => None,
+        };
+        let history = db::recent_messages(&self.db, req.chat.id, req.chat.thread_id, exclude, HISTORY_LIMIT).await?;
+        // Only the requester's memories, also in groups, so nobody else's facts leak.
+        let memories = db::list_memories(&self.db, req.user.id, MEMORY_LIMIT).await?;
         let system = system_prompt(&PromptContext {
             now_local: Utc::now().with_timezone(&timezone),
             timezone,
             chat: &req.chat,
             user: &req.user,
-            memories: &[],
+            memories: &memories,
             tool_names: &[],
             language,
         });
-        let messages = [json!({"role": "system", "content": system}), user_message(&req)];
+        let mut messages = Vec::with_capacity(history.len() + 2);
+        messages.push(json!({"role": "system", "content": system}));
+        messages.extend(history.iter().map(history_message));
+        messages.push(user_message(&req));
+
         let reply = self.llm.complete(&messages, &[]).await?;
         let text = if reply.content.trim().is_empty() { "…".to_owned() } else { reply.content };
         Ok(AgentOutput { text, attachments: Vec::new() })
+    }
+
+    /// The user's saved timezone, or the default when unset or invalid.
+    async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
+        Ok(db::user_timezone(&self.db, user_id)
+            .await?
+            .and_then(|tz| tz.parse().ok())
+            .unwrap_or(self.default_timezone))
     }
 
     pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, PembantuError> {
@@ -111,6 +137,16 @@ impl Agent {
             Some(image) => image.generate_image(prompt).await,
             None => Err(PembantuError::Config("image generation is not configured".into())),
         }
+    }
+}
+
+fn history_message(m: &StoredMessage) -> Value {
+    let text = truncate_chars(&m.text, HISTORY_TEXT_CHARS);
+    if m.role == "assistant" {
+        json!({"role": "assistant", "content": text})
+    } else {
+        let name = m.full_name.as_deref().unwrap_or("Unknown");
+        json!({"role": "user", "content": format!("{name}: {text}")})
     }
 }
 

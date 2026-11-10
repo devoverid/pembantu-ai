@@ -47,6 +47,29 @@ docker compose up -d db
 cargo run -p pembantu_telegram
 ```
 
+## Run with the published Docker image
+
+`docker-compose.prod.yml` runs the prebuilt `zuramai/pembantu-ai:1.1.0` image from Docker Hub with Postgres, with no local build needed.
+
+1. Create `.env` from `.env.example` and fill in your values (see step 3 above). `DATABASE_URL` is set by the compose file.
+```sh
+cp .env.example .env
+```
+2. Pull and start the stack
+```sh
+docker compose -f docker-compose.prod.yml up -d
+```
+3. Follow the bot logs
+```sh
+docker compose -f docker-compose.prod.yml logs -f bot
+```
+4. Stop it
+```sh
+docker compose -f docker-compose.prod.yml down
+```
+
+To upgrade, change the `image` tag in `docker-compose.prod.yml`, then run `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`.
+
 ## Docker image releases
 
 Push a `vMAJOR.MINOR.PATCH` tag to publish a multi-architecture image to Docker Hub. For example:

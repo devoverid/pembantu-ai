@@ -1,6 +1,8 @@
 pub mod agent;
+pub mod conversation;
 pub mod db;
 pub mod error;
+pub mod knowledge;
 pub mod llm;
 pub mod prompt;
 pub mod provider;

@@ -24,10 +24,10 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use crate::{
-    agent::{Attachment, ChatInfo, Trigger, UserInfo},
+    agent::{Attachment, ChatInfo, ImageInput, Trigger, UserInfo},
     db::PgPool,
     error::SitiError,
-    provider::gemini::types::GeminiAPI,
+    provider::ImageProvider,
     truncate_chars,
 };
 
@@ -40,6 +40,8 @@ pub struct ToolContext<'a> {
     pub timezone: Tz,
     pub now: DateTime<Utc>,
     pub trigger: &'a Trigger,
+    /// Images attached to the triggering message or the message it replies to.
+    pub images: &'a [ImageInput],
     pub attachments: &'a mut Vec<Attachment>,
 }
 
@@ -110,7 +112,7 @@ impl Tools {
         self.knowledge_enabled = enabled;
     }
 
-    pub fn image(&self) -> Option<&GeminiAPI> {
+    pub fn image(&self) -> Option<&ImageProvider> {
         self.image.as_ref()
     }
 

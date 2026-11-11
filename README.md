@@ -35,6 +35,8 @@ TELOXIDE_TOKEN=
 PROVIDER_TEXT_GENERATION=openrouter
 MODEL_TEXT_GENERATION=google/gemini-3.5-flash-lite
 OPENROUTER_API_KEY=
+PROVIDER_IMAGE_GENERATION=openrouter
+MODEL_IMAGE_GENERATION=bytedance-seed/seedream-5-0-flash
 GEMINI_API_KEY=
 ```
    For group chats, disable privacy mode in @BotFather (`/setprivacy` → Disable) so the bot can read group messages.

@@ -4,7 +4,7 @@ use siti_core::{
     agent::Agent,
     db::{self, PgPool},
     llm::{LlmClient, LlmProvider},
-    provider::gemini::types::GeminiAPI,
+    provider::{gemini::types::GeminiAPI, openrouter::OpenRouterImageAPI, ImageProvider},
     tools::web::TavilyClient,
 };
 use secrecy::{ExposeSecret, SecretString};
@@ -51,18 +51,25 @@ fn build_agent(config: Config, db: PgPool) -> Agent {
         other => panic!("unknown PROVIDER_TEXT_GENERATION={other:?}; expected openrouter or gemini"),
     };
 
-    let image = match non_empty(config.provider_image_generation).as_deref() {
-        None => None,
-        Some("gemini") => {
-            let model = non_empty(config.model_image_generation)
-                .expect("MODEL_IMAGE_GENERATION is required when PROVIDER_IMAGE_GENERATION is set");
-            let key = gemini_key
-                .as_ref()
-                .expect("GEMINI_API_KEY is required when PROVIDER_IMAGE_GENERATION=gemini");
-            Some(GeminiAPI::new(key.expose_secret().to_owned(), model))
+    let image = non_empty(config.provider_image_generation).map(|provider| {
+        let model = non_empty(config.model_image_generation)
+            .expect("MODEL_IMAGE_GENERATION is required when PROVIDER_IMAGE_GENERATION is set");
+        match provider.as_str() {
+            "openrouter" => {
+                let key = openrouter_key
+                    .as_ref()
+                    .expect("OPENROUTER_API_KEY is required when PROVIDER_IMAGE_GENERATION=openrouter");
+                ImageProvider::OpenRouter(OpenRouterImageAPI::new(key.expose_secret().to_owned(), model))
+            }
+            "gemini" => {
+                let key = gemini_key
+                    .as_ref()
+                    .expect("GEMINI_API_KEY is required when PROVIDER_IMAGE_GENERATION=gemini");
+                ImageProvider::Gemini(GeminiAPI::new(key.expose_secret().to_owned(), model))
+            }
+            other => panic!("unknown PROVIDER_IMAGE_GENERATION={other:?}; expected openrouter or gemini"),
         }
-        Some(other) => panic!("unknown PROVIDER_IMAGE_GENERATION={other:?}; expected gemini"),
-    };
+    });
 
     let timezone: chrono_tz::Tz = config.default_timezone.parse().unwrap_or_else(|_| {
         panic!(

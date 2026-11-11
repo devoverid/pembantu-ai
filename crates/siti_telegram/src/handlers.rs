@@ -364,6 +364,8 @@ async fn memory_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Resu
     }
 }
 
+/// `/image <prompt>`: generates an image, or edits the photo attached to the command or the
+/// message it replies to.
 async fn generate_image(app: &App, msg: &Message, prompt: &str, lang: Lang) -> ResponseResult<()> {
     let target = ReplyTarget::to_message(msg);
     if prompt.is_empty() {
@@ -377,7 +379,8 @@ async fn generate_image(app: &App, msg: &Message, prompt: &str, lang: Lang) -> R
     if let Err(e) = action.await {
         log::debug!("failed to send upload action: {e}");
     }
-    match app.agent.generate_image(prompt).await {
+    let images = message_images(app, msg).await;
+    match app.agent.generate_image(prompt, &images).await {
         Ok(bytes) => {
             let mut req = app
                 .bot
@@ -425,14 +428,7 @@ pub fn user_info(user: &User) -> UserInfo {
 }
 
 async fn build_request(app: &App, msg: &Message, from: &User, text: String) -> AgentRequest {
-    let mut images = Vec::new();
-    for source in [Some(msg), msg.reply_to_message()].into_iter().flatten() {
-        let Some(photo) = largest_photo(source) else { continue };
-        match download(app, photo).await {
-            Ok(bytes) => images.push(ImageInput { mime: "image/jpeg".into(), bytes }),
-            Err(e) => log::warn!("failed to download photo: {e}"),
-        }
-    }
+    let images = message_images(app, msg).await;
     let text = if text.trim().is_empty() && msg.photo().is_some() { "(sent a photo)".to_owned() } else { text };
 
     let reply_context = msg.reply_to_message().map(|r| {
@@ -449,6 +445,19 @@ async fn build_request(app: &App, msg: &Message, from: &User, text: String) -> A
         reply_context,
         trigger: Trigger::UserMessage { telegram_message_id: msg.id.0 },
     }
+}
+
+/// Photos attached to `msg` and to the message it replies to, so the agent can see and edit them.
+async fn message_images(app: &App, msg: &Message) -> Vec<ImageInput> {
+    let mut images = Vec::new();
+    for source in [Some(msg), msg.reply_to_message()].into_iter().flatten() {
+        let Some(photo) = largest_photo(source) else { continue };
+        match download(app, photo).await {
+            Ok(bytes) => images.push(ImageInput { mime: "image/jpeg".into(), bytes }),
+            Err(e) => log::warn!("failed to download photo: {e}"),
+        }
+    }
+    images
 }
 
 fn largest_photo(msg: &Message) -> Option<&PhotoSize> {

@@ -1,87 +1,173 @@
 <h1 align="center">Siti</h1>
-<p align="center">A telegram bot that can talk and help you</p>
+<p align="center">AI chatbot & agent untuk Telegram, WhatsApp, dan integrasi aplikasi (HTTP API)</p>
 
 <p align="center">
-You can try the bot here: <a href="https://t.me/PembantuAI_Bot">@PembantuAI_Bot</a>
+  Coba bot Telegram: <a href="https://t.me/PembantuAI_Bot">@PembantuAI_Bot</a>
 </p>
-
 
 <p align="center">
-  <img align="center" src="https://github.com/devoverid/pembantu-ai/assets/45036724/f6a0e236-f816-4402-91de-7ab467d43573">
+  <img align="center" src="https://github.com/devoverid/pembantu-ai/assets/45036724/f6a0e236-f816-4402-91de-7ab467d43573" width="420" alt="Siti preview">
 </p>
 
+Siti adalah asisten AI berbasis Rust dengan **core agent** (tool-calling, memori, penjadwalan, knowledge/RAG) yang dapat dipakai lintas kanal: Telegram, WhatsApp (Meta Cloud API), dan aplikasi lain melalui HTTP API.
 
-## TODO
+> Detail arsitektur dan roadmap: lihat [`PENGEMBANGAN.md`](PENGEMBANGAN.md).
 
-- [x] Telegram bot
-- [ ] Run Bahasa Indonesia models
-- [ ] Learn context
-- [ ] Add Whatsapp port
+## Fitur
 
-## Run locally
+- **Chatbot & agent**: loop agent dengan tool-calling, konteks percakapan, deteksi bahasa, persona per-chat.
+- **Memori & personalisasi**: fakta/preferensi pengguna (`remember/forget`), timezone, persona.
+- **Penjadwalan**: reminder dan agent task terjadwal (sekali/harian), briefing.
+- **Tools bawaan**: riwayat chat, web search & baca halaman (Tavily), generate image (Gemini), pencarian knowledge base.
+- **Knowledge base (RAG ringan)**: ingest dan pencarian dokumen untuk menjawab berbasis pengetahuan.
+- **Multi-channel**:
+  - **Telegram** (`siti_telegram`)
+  - **WhatsApp Cloud API** (`siti_whatsapp`, webhook)
+  - **HTTP API** (`siti_api`) untuk integrasi web/mobile/backend (session, chat sinkron, SSE streaming, knowledge endpoint)
+- **Operasional dasar**: migrasi Postgres, auth API key & rate limit (API), logging run agent.
 
-1. Clone the repository
-```sh
-git clone https://github.com/devoverid/pembantu-ai/
-cd pembantu-ai
-```
-2. Clone .env file
-```
+## Struktur Crates
+
+| Crate | Deskripsi |
+| --- | --- |
+| `siti_core` | Engine agent, LLM client (OpenRouter/Gemini), tools/registry, DB, memori, scheduler, knowledge, percakapan generik |
+| `siti_telegram` | Adapter/channel Telegram (Teloxide, command, render, scheduler worker) |
+| `siti_api` | Layanan HTTP untuk chatbot & agent (sessions, chat, SSE, knowledge, auth/rate limit) |
+| `siti_whatsapp` | Adapter/channel WhatsApp Meta Cloud API (webhook + kirim pesan) |
+
+## Prasyarat
+
+- Rust toolchain
+- PostgreSQL
+- Kredensial provider LLM (OpenRouter atau Gemini), dan opsional Tavily / image generation sesuai kebutuhan
+
+## Menjalankan Secara Lokal
+
+### 1. Clone & siapkan environment
+
+```bash
+git clone https://github.com/devoverid/siti.git
+cd siti
 cp .env.example .env
 ```
-3. Set up your values in .env (see `.env.example`)
-```
+
+Isi `.env` (contoh minimal untuk Telegram/LLM):
+
+```env
+# Telegram
 TELOXIDE_TOKEN=
+
+# Core / DB
+RUST_LOG=info
+DEFAULT_TIMEZONE=Asia/Jakarta
+DATABASE_URL=postgres://siti:siti@localhost:5432/siti
+
+# Text Generation
 PROVIDER_TEXT_GENERATION=openrouter
 MODEL_TEXT_GENERATION=google/gemini-3.5-flash-lite
+
+# API Keys
 OPENROUTER_API_KEY=
 PROVIDER_IMAGE_GENERATION=openrouter
 MODEL_IMAGE_GENERATION=bytedance-seed/seedream-5-0-flash
 GEMINI_API_KEY=
+TAVILY_API_KEY=
 ```
-   For group chats, disable privacy mode in @BotFather (`/setprivacy` → Disable) so the bot can read group messages.
-4. Start Postgres (set `POSTGRES_PORT` and `DATABASE_URL` if 5432 is taken)
-```
+
+> Untuk group chat Telegram, nonaktifkan privacy mode di @BotFather (`/setprivacy` → Disable) agar bot bisa membaca pesan grup.
+
+### 2. Jalankan Postgres
+
+```bash
 docker compose up -d db
 ```
-5. Run the telegram bot
-```
+
+Jika port 5432 bentrok, sesuaikan `POSTGRES_PORT` dan `DATABASE_URL`.
+
+### 3. Jalankan service yang dibutuhkan
+
+**Telegram bot**
+```bash
 cargo run -p siti_telegram
 ```
 
-## Run with the published Docker image
-
-`docker-compose.prod.yml` runs the prebuilt `ghcr.io/devoverid/siti:1.1.1` image from GitHub Container Registry with Postgres, with no local build needed.
-
-1. Create `.env` from `.env.example` and fill in your values (see step 3 above). `DATABASE_URL` is set by the compose file.
-```sh
-cp .env.example .env
-```
-2. Pull and start the stack
-```sh
-docker compose -f docker-compose.prod.yml up -d
-```
-3. Follow the bot logs
-```sh
-docker compose -f docker-compose.prod.yml logs -f bot
-```
-4. Stop it
-```sh
-docker compose -f docker-compose.prod.yml down
+**HTTP API (chatbot & agent)**
+```bash
+# env khusus: crates/siti_api/.env.example (API_HOST/PORT, API_KEY, RATE_LIMIT_PER_MINUTE, dll.)
+cargo run -p siti_api
 ```
 
-To upgrade, change the `image` tag in `docker-compose.prod.yml`, then run `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`.
+**WhatsApp (Meta Cloud API webhook)**
+```bash
+# env khusus: crates/siti_whatsapp/.env.example (WHATSAPP_VERIFY_TOKEN, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, dll.)
+cargo run -p siti_whatsapp
+```
 
-## Docker image releases
+## Contoh Penggunaan API
 
-Push a `vMAJOR.MINOR.PATCH` tag to publish a multi-architecture image to GitHub Container Registry (`ghcr.io`). For example:
+```bash
+# Chat sinkron
+curl -X POST http://localhost:3000/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1,"chat_id":1001,"user_name":"Budi","message":"Halo, bantu saya"}'
 
-```sh
+# Buat session lalu chat via SSE streaming
+curl -X POST http://localhost:3000/v1/sessions -H "Content-Type: application/json" -d '{"user_name":"Budi"}'
+curl -N -X POST http://localhost:3000/v1/chat/stream -H "Content-Type: application/json" \
+  -d '{"conversation_id":1,"user_name":"Budi","message":"Ringkas kabar terbaru tentang Rust"}'
+
+# Knowledge base
+curl -X POST http://localhost:3000/v1/knowledge -H "Content-Type: application/json" \
+  -d '{"title":"FAQ Produk","content":"...","source":"docs"}'
+```
+
+Lihat [`crates/siti_api/README.md`](crates/siti_api/README.md) dan [`crates/siti_whatsapp/README.md`](crates/siti_whatsapp/README.md) untuk detail endpoint/konfigurasi.
+
+## Menjalankan dengan Docker Image (Telegram)
+
+`docker-compose.prod.yml` menjalankan image prebuilt `ghcr.io/devoverid/siti:1.1.1` bersama Postgres (tanpa build lokal).
+
+1. Buat `.env` dari `.env.example` dan isi nilainya (`DATABASE_URL` di-set oleh compose).
+   ```bash
+   cp .env.example .env
+   ```
+2. Jalankan stack:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+3. Lihat log bot:
+   ```bash
+   docker compose -f docker-compose.prod.yml logs -f bot
+   ```
+4. Hentikan:
+   ```bash
+   docker compose -f docker-compose.prod.yml down
+   ```
+
+Upgrade: ubah tag `image` di `docker-compose.prod.yml`, lalu jalankan `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`.
+
+## Rilis Docker Image
+
+Push tag `vMAJOR.MINOR.PATCH` untuk mempublikasikan image multi-arsitektur ke GitHub Container Registry (`ghcr.io`), misalnya:
+
+```bash
 git tag v1.2.3
 git push origin v1.2.3
 ```
 
-The workflow publishes `ghcr.io/devoverid/siti:1.2.3`, `:1.2`, and `:latest`, authenticating with the built-in `GITHUB_TOKEN`. Pushes to `master` do not publish images.
+Workflow mempublikasikan `ghcr.io/devoverid/siti:1.2.3`, `:1.2`, dan `:latest`. Push ke `master` tidak mempublikasikan image.
 
-## License 
+## Status & Pengembangan Lanjutan
+
+- [x] Telegram bot
+- [x] HTTP API (session/chat/SSE/knowledge, auth & rate limit dasar)
+- [x] WhatsApp adapter (Meta Cloud API webhook, implementasi awal)
+- [x] Percakapan generik, knowledge/RAG ringan, tool registry/plugin dasar, logging run
+- [ ] Streaming token penuh dari provider LLM
+- [ ] Generalisasi identitas/idempotency lintas-channel end-to-end
+- [ ] RAG lanjutan (embedding/vector search), workflow/goal persisten, guardrails & policy tool
+- [ ] Auth multi-tenant/kuota terdistribusi, observability terstruktur, dukungan media & hardening WhatsApp
+
+## License
+
 MIT

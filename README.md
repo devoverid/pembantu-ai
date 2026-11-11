@@ -49,7 +49,7 @@ cargo run -p siti_telegram
 
 ## Run with the published Docker image
 
-`docker-compose.prod.yml` runs the prebuilt `zuramai/pembantu-ai:1.1.0` image from Docker Hub with Postgres, with no local build needed.
+`docker-compose.prod.yml` runs the prebuilt `ghcr.io/devoverid/siti:1.1.1` image from GitHub Container Registry with Postgres, with no local build needed.
 
 1. Create `.env` from `.env.example` and fill in your values (see step 3 above). `DATABASE_URL` is set by the compose file.
 ```sh
@@ -72,14 +72,14 @@ To upgrade, change the `image` tag in `docker-compose.prod.yml`, then run `docke
 
 ## Docker image releases
 
-Push a `vMAJOR.MINOR.PATCH` tag to publish a multi-architecture image to Docker Hub. For example:
+Push a `vMAJOR.MINOR.PATCH` tag to publish a multi-architecture image to GitHub Container Registry (`ghcr.io`). For example:
 
 ```sh
 git tag v1.2.3
 git push origin v1.2.3
 ```
 
-The workflow publishes `zuramai/pembantu-ai:1.2.3`, `:1.2`, and `:latest`. Pushes to `master` do not publish images.
+The workflow publishes `ghcr.io/devoverid/siti:1.2.3`, `:1.2`, and `:latest`, authenticating with the built-in `GITHUB_TOKEN`. Pushes to `master` do not publish images.
 
 ## License 
 MIT

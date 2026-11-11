@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   bot:
-    image: zuramai/pembantu-ai:1.1.0
+    image: ghcr.io/devoverid/siti:1.1.1
     env_file: .env
     environment:
       DATABASE_URL: postgres://pembantu:pembantu@db:5432/pembantu

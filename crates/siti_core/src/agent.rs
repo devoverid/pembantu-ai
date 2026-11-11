@@ -6,7 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     db::{self, PgPool, StoredMessage},
-    error::PembantuError,
+    error::SitiError,
     llm::{AssistantReply, LlmClient},
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
     provider::gemini::types::GeminiAPI,
@@ -101,7 +101,7 @@ impl Agent {
         &self,
         req: AgentRequest,
         events: UnboundedSender<AgentEvent>,
-    ) -> Result<AgentOutput, PembantuError> {
+    ) -> Result<AgentOutput, SitiError> {
         db::upsert_user(&self.db, &req.user).await?;
         let timezone = self.user_timezone(req.user.id).await?;
         let exclude = match req.trigger {
@@ -171,17 +171,17 @@ impl Agent {
     }
 
     /// The user's saved timezone, or the default when unset or invalid.
-    pub async fn user_timezone(&self, user_id: i64) -> Result<Tz, PembantuError> {
+    pub async fn user_timezone(&self, user_id: i64) -> Result<Tz, SitiError> {
         Ok(db::user_timezone(&self.db, user_id)
             .await?
             .and_then(|tz| tz.parse().ok())
             .unwrap_or(self.default_timezone))
     }
 
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, PembantuError> {
+    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
         match self.tools.image() {
             Some(image) => image.generate_image(prompt).await,
-            None => Err(PembantuError::Config("image generation is not configured".into())),
+            None => Err(SitiError::Config("image generation is not configured".into())),
         }
     }
 }

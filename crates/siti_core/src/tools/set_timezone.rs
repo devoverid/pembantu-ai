@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{function, parse_args, ToolContext};
-use crate::{db, error::PembantuError};
+use crate::{db, error::SitiError};
 
 pub const NAME: &str = "set_timezone";
 
@@ -25,10 +25,10 @@ struct Args {
     timezone: String,
 }
 
-pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
     let Args { timezone } = parse_args(args)?;
     let tz: Tz = timezone.trim().parse().map_err(|_| {
-        PembantuError::Generate(format!("unknown timezone {timezone:?}; use an IANA name such as Asia/Jakarta"))
+        SitiError::Generate(format!("unknown timezone {timezone:?}; use an IANA name such as Asia/Jakarta"))
     })?;
     db::set_user_timezone(ctx.db, ctx.user.id, tz.name()).await?;
     Ok(json!({"timezone": tz.name()}).to_string())

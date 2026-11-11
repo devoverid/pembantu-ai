@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "crates/pembantu_telegram",
-    "crates/pembantu_core",
-    "crates/pembantu_whatsapp",
+    "crates/siti_telegram",
+    "crates/siti_core",
+    "crates/siti_whatsapp",
 ]
 
 [workspace.dependencies]

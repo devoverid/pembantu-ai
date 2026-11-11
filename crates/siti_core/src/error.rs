@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PembantuError {
+pub enum SitiError {
     #[error("request error: {0}")]
     Request(#[from] reqwest::Error),
     #[error("LLM error: {0}")]

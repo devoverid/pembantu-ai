@@ -1,8 +1,8 @@
 telegram:
-	RUST_LOG=trace cargo watch -c -w crates --exec "run -p pembantu_telegram"
+	RUST_LOG=trace cargo watch -c -w crates --exec "run -p siti_telegram"
 build:
 	cargo build --all
 prod:
-	./target/release/pembantu_telegram
+	./target/release/siti_telegram
 .PHONY:
 	telegram build

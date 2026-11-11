@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use super::ToolContext;
 use crate::{
     db::{self, NewTask},
-    error::PembantuError,
+    error::SitiError,
     schedule::{parse_local_datetime, parse_local_time, Schedule},
 };
 
@@ -29,12 +29,12 @@ struct ScheduleArgs {
     weekdays: Option<Vec<u8>>,
 }
 
-fn invalid(msg: &str) -> PembantuError {
-    PembantuError::Generate(msg.to_owned())
+fn invalid(msg: &str) -> SitiError {
+    SitiError::Generate(msg.to_owned())
 }
 
 impl ScheduleArgs {
-    fn into_schedule(self, ctx: &ToolContext<'_>) -> Result<(Schedule, DateTime<Utc>), PembantuError> {
+    fn into_schedule(self, ctx: &ToolContext<'_>) -> Result<(Schedule, DateTime<Utc>), SitiError> {
         let given = [self.at.is_some(), self.in_seconds.is_some(), self.daily_at.is_some()];
         if given.iter().filter(|g| **g).count() != 1 {
             return Err(invalid("give exactly one of at, in_seconds or daily_at"));
@@ -69,7 +69,7 @@ impl ScheduleArgs {
 }
 
 /// Creates a task for the requester in the current chat and describes it for the model.
-async fn create(ctx: &ToolContext<'_>, kind: &str, payload: &str, args: ScheduleArgs) -> Result<String, PembantuError> {
+async fn create(ctx: &ToolContext<'_>, kind: &str, payload: &str, args: ScheduleArgs) -> Result<String, SitiError> {
     let payload = payload.trim();
     if payload.is_empty() {
         return Err(invalid("the reminder text / prompt must not be empty"));
@@ -105,7 +105,7 @@ pub mod create_reminder {
 
     use super::{create, schedule_properties, ScheduleArgs};
     use crate::{
-        error::PembantuError,
+        error::SitiError,
         tools::{function, parse_args, ToolContext},
     };
 
@@ -128,7 +128,7 @@ pub mod create_reminder {
         schedule: ScheduleArgs,
     }
 
-    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
         let Args { text, schedule } = parse_args(args)?;
         create(ctx, "reminder", &text, schedule).await
     }
@@ -141,7 +141,7 @@ pub mod schedule_agent_task {
 
     use super::{create, schedule_properties, ScheduleArgs};
     use crate::{
-        error::PembantuError,
+        error::SitiError,
         tools::{function, parse_args, ToolContext},
     };
 
@@ -164,7 +164,7 @@ pub mod schedule_agent_task {
         schedule: ScheduleArgs,
     }
 
-    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
         let Args { prompt, schedule } = parse_args(args)?;
         create(ctx, "agent_task", &prompt, schedule).await
     }
@@ -176,7 +176,7 @@ pub mod list_scheduled_tasks {
 
     use crate::{
         db,
-        error::PembantuError,
+        error::SitiError,
         tools::{function, ToolContext},
     };
 
@@ -190,7 +190,7 @@ pub mod list_scheduled_tasks {
         )
     }
 
-    pub async fn run(_args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+    pub async fn run(_args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
         let tasks = db::list_active_tasks(ctx.db, ctx.chat.id).await?;
         let tasks: Vec<_> = tasks
             .iter()
@@ -216,7 +216,7 @@ pub mod cancel_scheduled_task {
 
     use crate::{
         db::{self, CancelResult},
-        error::PembantuError,
+        error::SitiError,
         tools::{function, parse_args, ToolContext},
     };
 
@@ -235,7 +235,7 @@ pub mod cancel_scheduled_task {
         task_id: i64,
     }
 
-    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+    pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
         let Args { task_id } = parse_args(args)?;
         let result = match db::cancel_task(ctx.db, ctx.chat.id, ctx.user.id, task_id).await? {
             CancelResult::Cancelled => "cancelled",

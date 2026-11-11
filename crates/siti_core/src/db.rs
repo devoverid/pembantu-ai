@@ -6,18 +6,18 @@ use serde_json::Value;
 use sqlx::{postgres::PgPoolOptions, types::Json};
 pub use sqlx::PgPool;
 
-use crate::{agent::UserInfo, error::PembantuError, schedule::Schedule};
+use crate::{agent::UserInfo, error::SitiError, schedule::Schedule};
 
-pub async fn connect(url: &str) -> Result<PgPool, PembantuError> {
+pub async fn connect(url: &str) -> Result<PgPool, SitiError> {
     let pool = PgPoolOptions::new().max_connections(10).connect(url).await?;
     sqlx::migrate!()
         .run(&pool)
         .await
-        .map_err(|e| PembantuError::Config(e.to_string()))?;
+        .map_err(|e| SitiError::Config(e.to_string()))?;
     Ok(pool)
 }
 
-pub async fn upsert_user(pool: &PgPool, user: &UserInfo) -> Result<(), PembantuError> {
+pub async fn upsert_user(pool: &PgPool, user: &UserInfo) -> Result<(), SitiError> {
     sqlx::query(
         "INSERT INTO users (id, username, full_name, language_code) VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, full_name = EXCLUDED.full_name,
@@ -32,7 +32,7 @@ pub async fn upsert_user(pool: &PgPool, user: &UserInfo) -> Result<(), PembantuE
     Ok(())
 }
 
-pub async fn upsert_chat(pool: &PgPool, id: i64, kind: &str, title: Option<&str>) -> Result<(), PembantuError> {
+pub async fn upsert_chat(pool: &PgPool, id: i64, kind: &str, title: Option<&str>) -> Result<(), SitiError> {
     sqlx::query(
         "INSERT INTO chats (id, kind, title) VALUES ($1, $2, $3)
          ON CONFLICT (id) DO UPDATE SET kind = EXCLUDED.kind, title = EXCLUDED.title, updated_at = now()",
@@ -56,7 +56,7 @@ pub struct NewMessage<'a> {
     pub created_at: DateTime<Utc>,
 }
 
-pub async fn insert_message(pool: &PgPool, m: &NewMessage<'_>) -> Result<(), PembantuError> {
+pub async fn insert_message(pool: &PgPool, m: &NewMessage<'_>) -> Result<(), SitiError> {
     sqlx::query(
         "INSERT INTO messages (chat_id, telegram_message_id, thread_id, user_id, role, text,
            reply_to_telegram_message_id, created_at)
@@ -91,7 +91,7 @@ pub async fn recent_messages(
     thread_id: Option<i32>,
     exclude_telegram_message_id: Option<i32>,
     limit: i64,
-) -> Result<Vec<StoredMessage>, PembantuError> {
+) -> Result<Vec<StoredMessage>, SitiError> {
     let mut rows: Vec<StoredMessage> = sqlx::query_as(
         "SELECT m.role, m.text, m.created_at, u.full_name
          FROM messages m LEFT JOIN users u ON u.id = m.user_id
@@ -116,7 +116,7 @@ pub async fn messages_since(
     thread_id: Option<i32>,
     since: DateTime<Utc>,
     limit: i64,
-) -> Result<Vec<StoredMessage>, PembantuError> {
+) -> Result<Vec<StoredMessage>, SitiError> {
     let mut rows: Vec<StoredMessage> = sqlx::query_as(
         "SELECT m.role, m.text, m.created_at, u.full_name
          FROM messages m LEFT JOIN users u ON u.id = m.user_id
@@ -133,7 +133,7 @@ pub async fn messages_since(
     Ok(rows)
 }
 
-pub async fn user_timezone(pool: &PgPool, user_id: i64) -> Result<Option<String>, PembantuError> {
+pub async fn user_timezone(pool: &PgPool, user_id: i64) -> Result<Option<String>, SitiError> {
     let tz: Option<Option<String>> = sqlx::query_scalar("SELECT timezone FROM users WHERE id = $1")
         .bind(user_id)
         .fetch_optional(pool)
@@ -141,7 +141,7 @@ pub async fn user_timezone(pool: &PgPool, user_id: i64) -> Result<Option<String>
     Ok(tz.flatten())
 }
 
-pub async fn set_user_timezone(pool: &PgPool, user_id: i64, timezone: &str) -> Result<(), PembantuError> {
+pub async fn set_user_timezone(pool: &PgPool, user_id: i64, timezone: &str) -> Result<(), SitiError> {
     sqlx::query("UPDATE users SET timezone = $2, updated_at = now() WHERE id = $1")
         .bind(user_id)
         .bind(timezone)
@@ -150,7 +150,7 @@ pub async fn set_user_timezone(pool: &PgPool, user_id: i64, timezone: &str) -> R
     Ok(())
 }
 
-pub async fn add_memory(pool: &PgPool, user_id: i64, content: &str) -> Result<i64, PembantuError> {
+pub async fn add_memory(pool: &PgPool, user_id: i64, content: &str) -> Result<i64, SitiError> {
     Ok(sqlx::query_scalar("INSERT INTO memories (user_id, content) VALUES ($1, $2) RETURNING id")
         .bind(user_id)
         .bind(content)
@@ -158,7 +158,7 @@ pub async fn add_memory(pool: &PgPool, user_id: i64, content: &str) -> Result<i6
         .await?)
 }
 
-pub async fn count_memories(pool: &PgPool, user_id: i64) -> Result<i64, PembantuError> {
+pub async fn count_memories(pool: &PgPool, user_id: i64) -> Result<i64, SitiError> {
     Ok(sqlx::query_scalar("SELECT count(*) FROM memories WHERE user_id = $1")
         .bind(user_id)
         .fetch_one(pool)
@@ -166,7 +166,7 @@ pub async fn count_memories(pool: &PgPool, user_id: i64) -> Result<i64, Pembantu
 }
 
 /// The newest `limit` memories of a user, newest first.
-pub async fn list_memories(pool: &PgPool, user_id: i64, limit: i64) -> Result<Vec<(i64, String)>, PembantuError> {
+pub async fn list_memories(pool: &PgPool, user_id: i64, limit: i64) -> Result<Vec<(i64, String)>, SitiError> {
     Ok(sqlx::query_as(
         "SELECT id, content FROM memories WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2",
     )
@@ -176,7 +176,7 @@ pub async fn list_memories(pool: &PgPool, user_id: i64, limit: i64) -> Result<Ve
     .await?)
 }
 
-pub async fn delete_memory(pool: &PgPool, user_id: i64, id: i64) -> Result<bool, PembantuError> {
+pub async fn delete_memory(pool: &PgPool, user_id: i64, id: i64) -> Result<bool, SitiError> {
     let result = sqlx::query("DELETE FROM memories WHERE user_id = $1 AND id = $2")
         .bind(user_id)
         .bind(id)
@@ -185,7 +185,7 @@ pub async fn delete_memory(pool: &PgPool, user_id: i64, id: i64) -> Result<bool,
     Ok(result.rows_affected() > 0)
 }
 
-pub async fn clear_memories(pool: &PgPool, user_id: i64) -> Result<u64, PembantuError> {
+pub async fn clear_memories(pool: &PgPool, user_id: i64) -> Result<u64, SitiError> {
     let result = sqlx::query("DELETE FROM memories WHERE user_id = $1")
         .bind(user_id)
         .execute(pool)
@@ -194,14 +194,14 @@ pub async fn clear_memories(pool: &PgPool, user_id: i64) -> Result<u64, Pembantu
 }
 
 /// The chat's `(kind, title)`.
-pub async fn get_chat(pool: &PgPool, id: i64) -> Result<Option<(String, Option<String>)>, PembantuError> {
+pub async fn get_chat(pool: &PgPool, id: i64) -> Result<Option<(String, Option<String>)>, SitiError> {
     Ok(sqlx::query_as("SELECT kind, title FROM chats WHERE id = $1")
         .bind(id)
         .fetch_optional(pool)
         .await?)
 }
 
-pub async fn get_user(pool: &PgPool, id: i64) -> Result<Option<UserInfo>, PembantuError> {
+pub async fn get_user(pool: &PgPool, id: i64) -> Result<Option<UserInfo>, SitiError> {
     let row: Option<(i64, String, Option<String>, Option<String>)> =
         sqlx::query_as("SELECT id, full_name, username, language_code FROM users WHERE id = $1")
             .bind(id)
@@ -222,7 +222,7 @@ pub struct NewTask<'a> {
     pub next_run_at: DateTime<Utc>,
 }
 
-pub async fn create_task(pool: &PgPool, t: &NewTask<'_>) -> Result<i64, PembantuError> {
+pub async fn create_task(pool: &PgPool, t: &NewTask<'_>) -> Result<i64, SitiError> {
     Ok(sqlx::query_scalar(
         "INSERT INTO scheduled_tasks (chat_id, thread_id, created_by, kind, label, payload, schedule, timezone, next_run_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
@@ -301,7 +301,7 @@ impl RawTaskRow {
 }
 
 /// Active tasks of a chat, soonest first.
-pub async fn list_active_tasks(pool: &PgPool, chat_id: i64) -> Result<Vec<TaskRow>, PembantuError> {
+pub async fn list_active_tasks(pool: &PgPool, chat_id: i64) -> Result<Vec<TaskRow>, SitiError> {
     let rows: Vec<RawTaskRow> = sqlx::query_as(
         "SELECT * FROM scheduled_tasks WHERE chat_id = $1 AND status = 'active' ORDER BY next_run_at, id",
     )
@@ -319,7 +319,7 @@ pub enum CancelResult {
 }
 
 /// Cancels an active task of this chat; only its creator may cancel it.
-pub async fn cancel_task(pool: &PgPool, chat_id: i64, user_id: i64, id: i64) -> Result<CancelResult, PembantuError> {
+pub async fn cancel_task(pool: &PgPool, chat_id: i64, user_id: i64, id: i64) -> Result<CancelResult, SitiError> {
     let owner: Option<i64> = sqlx::query_scalar(
         "SELECT created_by FROM scheduled_tasks WHERE id = $1 AND chat_id = $2 AND status = 'active'",
     )
@@ -340,7 +340,7 @@ pub async fn cancel_task(pool: &PgPool, chat_id: i64, user_id: i64, id: i64) -> 
     }
 }
 
-pub async fn cancel_labeled_tasks(pool: &PgPool, chat_id: i64, user_id: i64, label: &str) -> Result<u64, PembantuError> {
+pub async fn cancel_labeled_tasks(pool: &PgPool, chat_id: i64, user_id: i64, label: &str) -> Result<u64, SitiError> {
     let result = sqlx::query(
         "UPDATE scheduled_tasks SET status = 'cancelled'
          WHERE chat_id = $1 AND created_by = $2 AND label = $3 AND status = 'active'",
@@ -353,7 +353,7 @@ pub async fn cancel_labeled_tasks(pool: &PgPool, chat_id: i64, user_id: i64, lab
     Ok(result.rows_affected())
 }
 
-pub async fn record_task_error(pool: &PgPool, id: i64, error: &str, mark_failed: bool) -> Result<(), PembantuError> {
+pub async fn record_task_error(pool: &PgPool, id: i64, error: &str, mark_failed: bool) -> Result<(), SitiError> {
     sqlx::query(
         "UPDATE scheduled_tasks SET last_error = $2, status = CASE WHEN $3 THEN 'failed' ELSE status END WHERE id = $1",
     )
@@ -368,7 +368,7 @@ pub async fn record_task_error(pool: &PgPool, id: i64, error: &str, mark_failed:
 /// Claims due tasks at most once: each claimed row is advanced to its next run (or marked done)
 /// in the same transaction, before the caller executes it. Missed runs after downtime fire once
 /// and then continue from `now`. Rows with an unparsable schedule or timezone are marked failed.
-pub async fn claim_due_tasks(pool: &PgPool, now: DateTime<Utc>, limit: i64) -> Result<Vec<TaskRow>, PembantuError> {
+pub async fn claim_due_tasks(pool: &PgPool, now: DateTime<Utc>, limit: i64) -> Result<Vec<TaskRow>, SitiError> {
     let mut tx = pool.begin().await?;
     let rows: Vec<RawTaskRow> = sqlx::query_as(
         "SELECT * FROM scheduled_tasks WHERE status = 'active' AND next_run_at <= $1

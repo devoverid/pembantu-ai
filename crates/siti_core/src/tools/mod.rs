@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 use crate::{
     agent::{Attachment, ChatInfo, Trigger, UserInfo},
     db::PgPool,
-    error::PembantuError,
+    error::SitiError,
     provider::gemini::types::GeminiAPI,
     truncate_chars,
 };
@@ -83,7 +83,7 @@ impl Tools {
         let result = if self.names(ctx.trigger).contains(&name) {
             self.dispatch(name, args, ctx).await
         } else {
-            Err(PembantuError::Generate(format!("unknown tool: {name}")))
+            Err(SitiError::Generate(format!("unknown tool: {name}")))
         };
         match result {
             Ok(output) => truncate_chars(&output, MAX_RESULT_CHARS).to_owned(),
@@ -94,7 +94,7 @@ impl Tools {
         }
     }
 
-    async fn dispatch(&self, name: &str, args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+    async fn dispatch(&self, name: &str, args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
         match (name, &self.search) {
             (remember::NAME, _) => remember::run(args, ctx).await,
             (forget::NAME, _) => forget::run(args, ctx).await,
@@ -108,9 +108,9 @@ impl Tools {
             (read_webpage::NAME, Some(client)) => read_webpage::run(args, client).await,
             (generate_image::NAME, _) => match &self.image {
                 Some(image) => generate_image::run(args, ctx, image).await,
-                None => Err(PembantuError::Generate("image generation is not configured".into())),
+                None => Err(SitiError::Generate("image generation is not configured".into())),
             },
-            _ => Err(PembantuError::Generate(format!("unknown tool: {name}"))),
+            _ => Err(SitiError::Generate(format!("unknown tool: {name}"))),
         }
     }
 }
@@ -145,6 +145,6 @@ pub(crate) fn function(name: &str, description: &str, parameters: Value) -> Chat
 }
 
 /// Parses tool arguments, reporting schema mismatches back to the model.
-pub(crate) fn parse_args<T: DeserializeOwned>(args: &str) -> Result<T, PembantuError> {
-    serde_json::from_str(args).map_err(|e| PembantuError::Generate(format!("invalid arguments: {e}")))
+pub(crate) fn parse_args<T: DeserializeOwned>(args: &str) -> Result<T, SitiError> {
+    serde_json::from_str(args).map_err(|e| SitiError::Generate(format!("invalid arguments: {e}")))
 }

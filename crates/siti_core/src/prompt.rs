@@ -13,10 +13,11 @@ pub enum ReplyLanguage {
 
 impl ReplyLanguage {
     /// From a Telegram `language_code`, used when the message itself is inconclusive.
+    /// Indonesian is the default; English only for English-language clients.
     pub fn from_code(code: Option<&str>) -> Self {
         match code {
-            Some(code) if code.starts_with("id") => ReplyLanguage::Indonesian,
-            _ => ReplyLanguage::English,
+            Some(code) if code.starts_with("en") => ReplyLanguage::English,
+            _ => ReplyLanguage::Indonesian,
         }
     }
 
@@ -73,7 +74,7 @@ pub struct PromptContext<'a> {
 
 pub fn system_prompt(p: &PromptContext) -> String {
     let mut s = String::from(
-        "You are Pembantu, a personal AI assistant that lives in Telegram and gets things done. \
+        "You are Siti, a personal AI assistant that lives in Telegram and gets things done. \
          Prefer acting with your tools over telling the user how to do something. Be concise.\n",
     );
     let _ = writeln!(s, "Current time: {} ({}).", p.now_local.format("%A, %Y-%m-%d %H:%M"), p.timezone);

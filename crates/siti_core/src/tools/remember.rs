@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{function, parse_args, ToolContext};
-use crate::{db, error::PembantuError};
+use crate::{db, error::SitiError};
 
 pub const NAME: &str = "remember";
 const MAX_MEMORIES: i64 = 200;
@@ -25,14 +25,14 @@ struct Args {
     fact: String,
 }
 
-pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
     let Args { fact } = parse_args(args)?;
     let fact = fact.trim();
     if fact.is_empty() {
-        return Err(PembantuError::Generate("fact must not be empty".into()));
+        return Err(SitiError::Generate("fact must not be empty".into()));
     }
     if db::count_memories(ctx.db, ctx.user.id).await? >= MAX_MEMORIES {
-        return Err(PembantuError::Generate("memory full, ask the user to forget something".into()));
+        return Err(SitiError::Generate("memory full, ask the user to forget something".into()));
     }
     let id = db::add_memory(ctx.db, ctx.user.id, fact).await?;
     Ok(json!({"id": id}).to_string())

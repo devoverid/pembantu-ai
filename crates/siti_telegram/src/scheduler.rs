@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
-use pembantu_core::{
+use siti_core::{
     agent::{AgentRequest, ChatInfo, ChatKind, Trigger},
     db::{self, NewMessage, TaskRow},
     schedule::Schedule,

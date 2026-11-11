@@ -1,4 +1,4 @@
-<h1 align="center">Pembantu AI</h1>
+<h1 align="center">Siti</h1>
 <p align="center">A telegram bot that can talk and help you</p>
 
 <p align="center">
@@ -44,7 +44,7 @@ docker compose up -d db
 ```
 5. Run the telegram bot
 ```
-cargo run -p pembantu_telegram
+cargo run -p siti_telegram
 ```
 
 ## Run with the published Docker image

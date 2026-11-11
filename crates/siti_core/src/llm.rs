@@ -4,7 +4,7 @@ use async_openai::{config::OpenAIConfig, types::chat::ChatCompletionTools, Clien
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::PembantuError;
+use crate::error::SitiError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LlmProvider {
@@ -84,7 +84,7 @@ impl LlmClient {
         &self,
         messages: &[Value],
         tools: &[ChatCompletionTools],
-    ) -> Result<AssistantReply, PembantuError> {
+    ) -> Result<AssistantReply, SitiError> {
         let req = ChatRequest {
             model: &self.model,
             messages,
@@ -96,14 +96,14 @@ impl LlmClient {
             .choices
             .into_iter()
             .next()
-            .ok_or_else(|| PembantuError::Generate("empty choices".into()))?;
+            .ok_or_else(|| SitiError::Generate("empty choices".into()))?;
         parse_reply(choice.message)
     }
 }
 
-fn parse_reply(message: Value) -> Result<AssistantReply, PembantuError> {
+fn parse_reply(message: Value) -> Result<AssistantReply, SitiError> {
     let Value::Object(mut obj) = message else {
-        return Err(PembantuError::Generate("assistant message is not an object".into()));
+        return Err(SitiError::Generate("assistant message is not an object".into()));
     };
     obj.retain(|_, v| !v.is_null());
     obj.insert("role".into(), Value::String("assistant".into()));

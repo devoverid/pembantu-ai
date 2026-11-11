@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use pembantu_core::{
+use siti_core::{
     agent::Agent,
     db::{self, PgPool},
     llm::{LlmClient, LlmProvider},

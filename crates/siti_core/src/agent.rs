@@ -111,6 +111,7 @@ impl Agent {
         let history = db::recent_messages(&self.db, req.chat.id, req.chat.thread_id, exclude, HISTORY_LIMIT).await?;
         // Only the requester's memories, also in groups, so nobody else's facts leak.
         let memories = db::list_memories(&self.db, req.user.id, MEMORY_LIMIT).await?;
+        let persona = db::chat_persona(&self.db, req.chat.id).await?;
         let tool_names = self.tools.names(&req.trigger);
         let definitions = self.tools.definitions(&req.trigger);
 
@@ -128,6 +129,7 @@ impl Agent {
             memories: &memories,
             tool_names: &tool_names,
             language,
+            persona: persona.as_deref(),
         });
         let mut messages = Vec::with_capacity(history.len() + 2);
         messages.push(json!({"role": "system", "content": system}));

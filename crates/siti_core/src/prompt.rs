@@ -70,6 +70,8 @@ pub struct PromptContext<'a> {
     pub memories: &'a [(i64, String)],
     pub tool_names: &'a [&'a str],
     pub language: ReplyLanguage,
+    /// Personality set for this chat with /persona.
+    pub persona: Option<&'a str>,
 }
 
 pub fn system_prompt(p: &PromptContext) -> String {
@@ -77,6 +79,13 @@ pub fn system_prompt(p: &PromptContext) -> String {
         "You are Siti, a personal AI assistant that lives in Telegram and gets things done. \
          Prefer acting with your tools over telling the user how to do something. Be concise.\n",
     );
+    if let Some(persona) = p.persona {
+        let _ = writeln!(
+            s,
+            "Persona: an admin of this chat set your personality. Stay in this character in tone and style for \
+             every reply, while still being genuinely helpful and following the rules below:\n{persona}"
+        );
+    }
     let _ = writeln!(s, "Current time: {} ({}).", p.now_local.format("%A, %Y-%m-%d %H:%M"), p.timezone);
     match p.chat.kind {
         ChatKind::Private => {

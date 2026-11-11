@@ -152,7 +152,11 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
             }
         }
         Command::Image(prompt) => generate_image(&app, &msg, prompt.trim(), lang).await,
-        cmd @ (Command::Memory(_) | Command::Briefing(_) | Command::Tasks(_) | Command::Timezone(_)) => {
+        cmd @ (Command::Memory(_)
+        | Command::Briefing(_)
+        | Command::Tasks(_)
+        | Command::Timezone(_)
+        | Command::Persona(_)) => {
             let text = text_command(&app, &msg, cmd, lang).await.unwrap_or_else(|e| {
                 log::error!("command failed: {e}");
                 i18n::error(lang).to_owned()
@@ -188,8 +192,53 @@ async fn text_command(app: &App, msg: &Message, cmd: Command, lang: Lang) -> Res
         Command::Briefing(args) => briefing_command(app, msg, user_id, args.trim(), lang).await,
         Command::Tasks(args) => tasks_command(app, msg.chat.id.0, user_id, args.trim(), lang).await,
         Command::Timezone(args) => timezone_command(app, user_id, args.trim(), lang).await,
+        Command::Persona(args) => persona_command(app, msg, args.trim(), lang).await,
         _ => Err(SitiError::Generate("not a text command".into())),
     }
+}
+
+const PERSONA_MAX_CHARS: usize = 1500;
+
+/// Shows, sets or resets the chat's persona. Anyone may view it; changing it is limited to private
+/// chats and group administrators.
+async fn persona_command(app: &App, msg: &Message, args: &str, lang: Lang) -> Result<String, SitiError> {
+    let chat_id = msg.chat.id.0;
+    if args.is_empty() {
+        return Ok(match db::chat_persona(&app.db, chat_id).await? {
+            Some(persona) => i18n::persona_current(lang, &persona),
+            None => i18n::usage_persona(lang).to_owned(),
+        });
+    }
+    if !can_change_persona(app, msg).await? {
+        return Ok(i18n::persona_admin_only(lang).to_owned());
+    }
+    if args.eq_ignore_ascii_case("reset") || args.eq_ignore_ascii_case("off") {
+        db::set_chat_persona(&app.db, chat_id, None).await?;
+        return Ok(i18n::persona_reset(lang).to_owned());
+    }
+    if args.chars().count() > PERSONA_MAX_CHARS {
+        return Ok(i18n::persona_too_long(lang, PERSONA_MAX_CHARS));
+    }
+    db::set_chat_persona(&app.db, chat_id, Some(args)).await?;
+    Ok(i18n::persona_set(lang).to_owned())
+}
+
+async fn can_change_persona(app: &App, msg: &Message) -> Result<bool, SitiError> {
+    if msg.chat.is_private() {
+        return Ok(true);
+    }
+    if !(msg.chat.is_group() || msg.chat.is_supergroup()) {
+        return Ok(false);
+    }
+    let Some(from) = msg.from.as_ref() else {
+        return Ok(false);
+    };
+    let member = app
+        .bot
+        .get_chat_member(msg.chat.id, from.id)
+        .await
+        .map_err(|e| SitiError::Generate(format!("getChatMember failed: {e}")))?;
+    Ok(member.is_privileged())
 }
 
 const BRIEFING_LABEL: &str = "daily_briefing";

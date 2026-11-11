@@ -21,4 +21,6 @@ pub enum Command {
     Tasks(String),
     #[command(description = "Zona waktu / Timezone: /timezone [Asia/Jakarta]")]
     Timezone(String),
+    #[command(description = "Kepribadian bot (admin) / Bot persona (admins): /persona [deskripsi/description | reset]")]
+    Persona(String),
 }

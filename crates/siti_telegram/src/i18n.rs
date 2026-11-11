@@ -64,6 +64,7 @@ macro_rules! help_id {
             "/briefing HH:MM | off — briefing harian\n",
             "/tasks — daftar pengingat & tugas terjadwal\n",
             "/timezone [zona] — lihat atau ubah zona waktu\n",
+            "/persona [deskripsi | reset] — atur kepribadian saya (admin grup / chat pribadi)\n",
             "/help — bantuan"
         )
     };
@@ -88,6 +89,7 @@ macro_rules! help_en {
             "/briefing HH:MM | off — daily briefing\n",
             "/tasks — list reminders & scheduled tasks\n",
             "/timezone [zone] — show or change your timezone\n",
+            "/persona [description | reset] — set my personality (group admins / private chats)\n",
             "/help — help"
         )
     };
@@ -263,5 +265,47 @@ pub fn timezone_invalid(lang: Lang) -> &'static str {
     match lang {
         Lang::Id => "Zona waktu tidak dikenal. Gunakan nama IANA, contoh: Asia/Jakarta",
         Lang::En => "Unknown timezone. Use an IANA name, for example: Asia/Jakarta",
+    }
+}
+
+pub fn usage_persona(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Belum ada persona khusus di obrolan ini.\nCara pakai: /persona <deskripsi kepribadian>, atau /persona reset untuk kembali ke default. Hanya admin grup (atau di chat pribadi) yang bisa mengubahnya.",
+        Lang::En => "No custom persona in this chat.\nUsage: /persona <personality description>, or /persona reset to restore the default. Only group admins (or anyone in a private chat) can change it.",
+    }
+}
+
+pub fn persona_current(lang: Lang, persona: &str) -> String {
+    match lang {
+        Lang::Id => format!("Persona saat ini:\n{persona}\n\nUbah dengan /persona <deskripsi> atau kembalikan dengan /persona reset."),
+        Lang::En => format!("Current persona:\n{persona}\n\nChange it with /persona <description> or restore the default with /persona reset."),
+    }
+}
+
+pub fn persona_set(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Persona diperbarui. Saya akan bersikap sesuai persona itu mulai sekarang.",
+        Lang::En => "Persona updated. I'll act accordingly from now on.",
+    }
+}
+
+pub fn persona_reset(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Persona dikembalikan ke default.",
+        Lang::En => "Persona restored to the default.",
+    }
+}
+
+pub fn persona_admin_only(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Id => "Hanya admin grup yang bisa mengubah persona.",
+        Lang::En => "Only group admins can change the persona.",
+    }
+}
+
+pub fn persona_too_long(lang: Lang, max: usize) -> String {
+    match lang {
+        Lang::Id => format!("Persona terlalu panjang (maksimal {max} karakter)."),
+        Lang::En => format!("The persona is too long (at most {max} characters)."),
     }
 }

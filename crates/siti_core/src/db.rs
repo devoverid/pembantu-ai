@@ -201,6 +201,25 @@ pub async fn get_chat(pool: &PgPool, id: i64) -> Result<Option<(String, Option<S
         .await?)
 }
 
+/// The custom persona set for a chat, if any.
+pub async fn chat_persona(pool: &PgPool, chat_id: i64) -> Result<Option<String>, SitiError> {
+    let persona: Option<Option<String>> = sqlx::query_scalar("SELECT persona FROM chats WHERE id = $1")
+        .bind(chat_id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(persona.flatten())
+}
+
+/// Sets (`Some`) or clears (`None`) a chat's persona.
+pub async fn set_chat_persona(pool: &PgPool, chat_id: i64, persona: Option<&str>) -> Result<(), SitiError> {
+    sqlx::query("UPDATE chats SET persona = $2, updated_at = now() WHERE id = $1")
+        .bind(chat_id)
+        .bind(persona)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_user(pool: &PgPool, id: i64) -> Result<Option<UserInfo>, SitiError> {
     let row: Option<(i64, String, Option<String>, Option<String>)> =
         sqlx::query_as("SELECT id, full_name, username, language_code FROM users WHERE id = $1")

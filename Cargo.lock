@@ -1561,45 +1561,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pembantu_core"
-version = "0.1.0"
-dependencies = [
- "async-openai",
- "base64",
- "chrono",
- "chrono-tz",
- "log",
- "reqwest 0.13.1",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror 2.0.12",
- "tokio",
-]
-
-[[package]]
-name = "pembantu_telegram"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "chrono-tz",
- "dotenvy",
- "envy",
- "log",
- "pembantu_core",
- "pretty_env_logger",
- "pulldown-cmark",
- "secrecy",
- "serde",
- "teloxide",
- "tokio",
-]
-
-[[package]]
-name = "pembantu_whatsapp"
-version = "0.1.0"
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2455,6 +2416,45 @@ name = "siphasher"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
+
+[[package]]
+name = "siti_core"
+version = "0.1.0"
+dependencies = [
+ "async-openai",
+ "base64",
+ "chrono",
+ "chrono-tz",
+ "log",
+ "reqwest 0.13.1",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tokio",
+]
+
+[[package]]
+name = "siti_telegram"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "dotenvy",
+ "envy",
+ "log",
+ "pretty_env_logger",
+ "pulldown-cmark",
+ "secrecy",
+ "serde",
+ "siti_core",
+ "teloxide",
+ "tokio",
+]
+
+[[package]]
+name = "siti_whatsapp"
+version = "0.1.0"
 
 [[package]]
 name = "slab"

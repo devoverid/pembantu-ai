@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use pembantu_core::{
+use siti_core::{
     agent::{AgentRequest, ChatInfo, ChatKind, ImageInput, Trigger, UserInfo},
     db::{self, NewMessage, NewTask},
-    error::PembantuError,
+    error::SitiError,
     schedule::{parse_local_time, Schedule},
     truncate_chars,
 };
@@ -58,7 +58,7 @@ fn chat_kind(chat: &teloxide::types::Chat) -> &'static str {
     }
 }
 
-async fn store_incoming(app: &App, msg: &Message) -> Result<(), pembantu_core::error::PembantuError> {
+async fn store_incoming(app: &App, msg: &Message) -> Result<(), siti_core::error::SitiError> {
     let user = msg.from.as_ref().map(user_info);
     if let Some(user) = &user {
         db::upsert_user(&app.db, user).await?;
@@ -120,7 +120,12 @@ fn should_respond(app: &App, msg: &Message) -> bool {
         .unwrap_or_default()
         .iter()
         .any(|e| matches!(e.kind(), MessageEntityKind::Mention) && e.text().eq_ignore_ascii_case(&mention));
-    mentioned || msg.text().or(msg.caption()).is_some_and(|t| t.starts_with("AI,"))
+    mentioned
+        || msg
+            .text()
+            .or(msg.caption())
+            .and_then(|t| t.get(..5))
+            .is_some_and(|p| p.eq_ignore_ascii_case("Siti,"))
 }
 
 fn user_lang(msg: &Message) -> Lang {
@@ -176,14 +181,14 @@ async fn handle_command(app: Arc<App>, msg: Message, cmd: Command) {
 }
 
 /// Commands that answer with a plain text message.
-async fn text_command(app: &App, msg: &Message, cmd: Command, lang: Lang) -> Result<String, PembantuError> {
-    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).ok_or(PembantuError::Generate("message has no sender".into()))?;
+async fn text_command(app: &App, msg: &Message, cmd: Command, lang: Lang) -> Result<String, SitiError> {
+    let user_id = msg.from.as_ref().map(|u| u.id.0 as i64).ok_or(SitiError::Generate("message has no sender".into()))?;
     match cmd {
         Command::Memory(args) => memory_command(app, user_id, args.trim(), lang).await,
         Command::Briefing(args) => briefing_command(app, msg, user_id, args.trim(), lang).await,
         Command::Tasks(args) => tasks_command(app, msg.chat.id.0, user_id, args.trim(), lang).await,
         Command::Timezone(args) => timezone_command(app, user_id, args.trim(), lang).await,
-        _ => Err(PembantuError::Generate("not a text command".into())),
+        _ => Err(SitiError::Generate("not a text command".into())),
     }
 }
 
@@ -192,7 +197,7 @@ const BRIEFING_PROMPT: &str = "Prepare my daily briefing: 1) summarize important
     with read_chat_history; 2) list my upcoming scheduled tasks with list_scheduled_tasks; 3) if web_search is available, \
     give 3 short news headlines matching my known interests. Keep it brief.";
 
-async fn briefing_command(app: &App, msg: &Message, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+async fn briefing_command(app: &App, msg: &Message, user_id: i64, args: &str, lang: Lang) -> Result<String, SitiError> {
     let chat_id = msg.chat.id.0;
     if args.is_empty() {
         let current = db::list_active_tasks(&app.db, chat_id)
@@ -215,7 +220,7 @@ async fn briefing_command(app: &App, msg: &Message, user_id: i64, args: &str, la
     let schedule = Schedule::Daily { time, weekdays: Vec::new() };
     let next = schedule
         .next_run_after(tz, Utc::now())
-        .ok_or(PembantuError::Generate("briefing time has no next run".into()))?;
+        .ok_or(SitiError::Generate("briefing time has no next run".into()))?;
     db::cancel_labeled_tasks(&app.db, chat_id, user_id, BRIEFING_LABEL).await?;
     db::create_task(
         &app.db,
@@ -236,7 +241,7 @@ async fn briefing_command(app: &App, msg: &Message, user_id: i64, args: &str, la
     Ok(i18n::briefing_set(lang, &time.format("%H:%M").to_string(), tz.name(), &next_local))
 }
 
-async fn tasks_command(app: &App, chat_id: i64, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+async fn tasks_command(app: &App, chat_id: i64, user_id: i64, args: &str, lang: Lang) -> Result<String, SitiError> {
     let mut words = args.split_whitespace();
     match (words.next(), words.next(), words.next()) {
         (None, _, _) => {
@@ -272,7 +277,7 @@ async fn tasks_command(app: &App, chat_id: i64, user_id: i64, args: &str, lang: 
     }
 }
 
-async fn timezone_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+async fn timezone_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, SitiError> {
     if args.is_empty() {
         let tz = app.agent.user_timezone(user_id).await?;
         return Ok(i18n::timezone_current(lang, tz.name()));
@@ -286,7 +291,7 @@ async fn timezone_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Re
     }
 }
 
-async fn memory_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, PembantuError> {
+async fn memory_command(app: &App, user_id: i64, args: &str, lang: Lang) -> Result<String, SitiError> {
     let mut words = args.split_whitespace();
     match (words.next(), words.next(), words.next()) {
         (None, _, _) => {

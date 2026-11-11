@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
-use pembantu_core::{
+use siti_core::{
     agent::{AgentEvent, AgentRequest, Attachment},
     db::{self, NewMessage},
     truncate_chars,

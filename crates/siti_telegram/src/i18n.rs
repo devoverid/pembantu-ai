@@ -1,6 +1,6 @@
 //! User-facing strings in Bahasa Indonesia and English.
 
-use pembantu_core::db::CancelResult;
+use siti_core::db::CancelResult;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lang {
@@ -8,10 +8,11 @@ pub enum Lang {
     En,
 }
 
+/// Indonesian is the default; English only for English-language clients.
 pub fn lang(code: Option<&str>) -> Lang {
     match code {
-        Some(code) if code.starts_with("id") => Lang::Id,
-        _ => Lang::En,
+        Some(code) if code.starts_with("en") => Lang::En,
+        _ => Lang::Id,
     }
 }
 
@@ -50,7 +51,7 @@ macro_rules! help_id {
             "Yang bisa saya lakukan:\n",
             "• Ngobrol dan menjawab pertanyaan\n",
             "• Memahami foto yang kamu kirim\n",
-            "• Di grup: mention saya, balas pesan saya, atau awali pesan dengan \"AI,\"\n",
+            "• Di grup: mention saya, balas pesan saya, atau awali pesan dengan \"Siti,\"\n",
             "• Mengingat isi obrolan grup dan fakta tentang kamu (cukup bilang \"ingat bahwa …\")\n",
             "• Mencari di web dan membaca halaman web\n",
             "• Membuat gambar\n",
@@ -74,7 +75,7 @@ macro_rules! help_en {
             "What I can do:\n",
             "• Chat and answer questions\n",
             "• Understand photos you send\n",
-            "• In groups: mention me, reply to my message, or start a message with \"AI,\"\n",
+            "• In groups: mention me, reply to my message, or start a message with \"Siti,\"\n",
             "• Remember the group conversation and facts about you (just say \"remember that …\")\n",
             "• Search the web and read web pages\n",
             "• Generate images\n",
@@ -95,11 +96,11 @@ macro_rules! help_en {
 pub fn welcome(lang: Lang) -> &'static str {
     match lang {
         Lang::Id => concat!(
-            "Halo! Saya Pembantu, asisten AI kamu di Telegram.\n\n",
+            "Halo! Saya Siti, asisten AI kamu di Telegram.\n\n",
             help_id!()
         ),
         Lang::En => concat!(
-            "Hi! I'm Pembantu, your AI assistant on Telegram.\n\n",
+            "Hi! I'm Siti, your AI assistant on Telegram.\n\n",
             help_en!()
         ),
     }

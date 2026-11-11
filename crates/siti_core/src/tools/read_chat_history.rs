@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{function, parse_args, ToolContext};
-use crate::{db, error::PembantuError};
+use crate::{db, error::SitiError};
 
 pub const NAME: &str = "read_chat_history";
 const MAX_OUTPUT_CHARS: usize = 60_000;
@@ -31,7 +31,7 @@ struct Args {
     limit: Option<i64>,
 }
 
-pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, PembantuError> {
+pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, SitiError> {
     let Args { hours, limit } = parse_args(args)?;
     let hours = hours.unwrap_or(24).clamp(1, 168);
     let limit = limit.unwrap_or(300).clamp(1, 500);
@@ -45,7 +45,7 @@ pub async fn run(args: &str, ctx: &mut ToolContext<'_>) -> Result<String, Pemban
         .iter()
         .map(|m| {
             let name = match (m.role.as_str(), m.full_name.as_deref()) {
-                ("assistant", _) => "Pembantu (you)",
+                ("assistant", _) => "Siti (you)",
                 (_, Some(name)) => name,
                 _ => "Unknown",
             };

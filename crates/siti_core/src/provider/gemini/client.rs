@@ -1,12 +1,12 @@
 use base64::prelude::*;
 
 use crate::{
-    error::PembantuError,
+    error::SitiError,
     provider::gemini::types::{Content, GeminiAPI, GenerateContent, GenerateContentResponse, GenerationConfig, Modality, Part, Role},
 };
 
 impl GeminiAPI {
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, PembantuError> {
+    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
         let body = GenerateContent {
             generation_config: Some(GenerationConfig {
                 response_modalities: vec![Modality::Image, Modality::Text],
@@ -29,10 +29,10 @@ impl GeminiAPI {
         let status = response.status();
         let body = response.text().await?;
         if !status.is_success() {
-            return Err(PembantuError::Generate(format!("Gemini image API {status}: {body}")));
+            return Err(SitiError::Generate(format!("Gemini image API {status}: {body}")));
         }
         let response_json: GenerateContentResponse = serde_json::from_str(&body)
-            .map_err(|e| PembantuError::Generate(format!("invalid Gemini image response: {e}")))?;
+            .map_err(|e| SitiError::Generate(format!("invalid Gemini image response: {e}")))?;
 
         let candidate = response_json.candidates.first();
         let parts = candidate
@@ -41,12 +41,12 @@ impl GeminiAPI {
             .unwrap_or_default();
 
         if let Some(data) = parts.iter().find_map(|p| p.inline_data.as_ref()) {
-            return BASE64_STANDARD.decode(&data.data).map_err(|_| PembantuError::Base64DecodeError);
+            return BASE64_STANDARD.decode(&data.data).map_err(|_| SitiError::Base64DecodeError);
         }
 
         let finish_reason = candidate.and_then(|c| c.finish_reason.as_deref()).unwrap_or("none");
         let text = parts.iter().filter_map(|p| p.text.as_deref()).collect::<Vec<_>>().join(" ");
-        Err(PembantuError::Generate(format!(
+        Err(SitiError::Generate(format!(
             "no image returned (finishReason={finish_reason}, text={text})"
         )))
     }

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::PembantuError, truncate_chars};
+use crate::{error::SitiError, truncate_chars};
 
 #[derive(Clone)]
 pub struct TavilyClient {
@@ -23,7 +23,7 @@ impl TavilyClient {
         }
     }
 
-    async fn post<B: Serialize, R: for<'de> Deserialize<'de>>(&self, path: &str, body: &B) -> Result<R, PembantuError> {
+    async fn post<B: Serialize, R: for<'de> Deserialize<'de>>(&self, path: &str, body: &B) -> Result<R, SitiError> {
         let response = self
             .http
             .post(format!("https://api.tavily.com/{path}"))
@@ -34,7 +34,7 @@ impl TavilyClient {
         let status = response.status();
         let text = response.text().await?;
         if !status.is_success() {
-            return Err(PembantuError::Generate(format!(
+            return Err(SitiError::Generate(format!(
                 "Tavily {path} failed with {status}: {}",
                 truncate_chars(&text, 500)
             )));
@@ -50,7 +50,7 @@ pub mod web_search {
 
     use super::TavilyClient;
     use crate::{
-        error::PembantuError,
+        error::SitiError,
         tools::{function, parse_args},
         truncate_chars,
     };
@@ -101,7 +101,7 @@ pub mod web_search {
         content: String,
     }
 
-    pub async fn run(args: &str, client: &TavilyClient) -> Result<String, PembantuError> {
+    pub async fn run(args: &str, client: &TavilyClient) -> Result<String, SitiError> {
         let Args { query, topic } = parse_args(args)?;
         let topic = match topic.as_deref() {
             Some("news") => "news",
@@ -125,7 +125,7 @@ pub mod read_webpage {
 
     use super::TavilyClient;
     use crate::{
-        error::PembantuError,
+        error::SitiError,
         tools::{function, parse_args},
     };
 
@@ -168,7 +168,7 @@ pub mod read_webpage {
         raw_content: String,
     }
 
-    pub async fn run(args: &str, client: &TavilyClient) -> Result<String, PembantuError> {
+    pub async fn run(args: &str, client: &TavilyClient) -> Result<String, SitiError> {
         let Args { url } = parse_args(args)?;
         let response: Response = client.post("extract", &Request { urls: [&url], format: "markdown" }).await?;
         match response.results.into_iter().next() {
@@ -180,7 +180,7 @@ pub mod read_webpage {
                     .and_then(|f| f.get("error"))
                     .and_then(Value::as_str)
                     .unwrap_or("no content returned");
-                Err(PembantuError::Generate(format!("could not read {url}: {reason}")))
+                Err(SitiError::Generate(format!("could not read {url}: {reason}")))
             }
         }
     }

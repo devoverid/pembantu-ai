@@ -16,5 +16,5 @@ RUN cargo build --release
 FROM debian:bookworm-slim as runtime
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=builder /app/target/release/pembantu_telegram .
-CMD ["./pembantu_telegram"]
+COPY --from=builder /app/target/release/siti_telegram .
+CMD ["./siti_telegram"]

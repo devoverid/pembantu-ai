@@ -1,5 +1,5 @@
 [package]
-name = "pembantu_telegram"
+name = "siti_telegram"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [[bin]]
 edition = "2021"
-name = "pembantu_telegram"
+name = "siti_telegram"
 path = "src/main.rs"
 
 [dependencies]
@@ -19,7 +19,7 @@ dotenvy = "0.15"
 chrono = "0.4"
 chrono-tz = "0.10"
 pulldown-cmark = { version = "0.13", default-features = false }
-pembantu_core = { path = "../pembantu_core" }
+siti_core = { path = "../siti_core" }
 envy = "0.4.2"
 serde = { version = "1", features = ["derive"] }
 secrecy = { version = "0.10.3", features = ["serde"] }

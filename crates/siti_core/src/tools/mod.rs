@@ -18,7 +18,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
 use crate::{
-    agent::{Attachment, ChatInfo, Trigger, UserInfo},
+    agent::{Attachment, ChatInfo, ImageInput, Trigger, UserInfo},
     db::PgPool,
     error::SitiError,
     provider::ImageProvider,
@@ -34,6 +34,8 @@ pub struct ToolContext<'a> {
     pub timezone: Tz,
     pub now: DateTime<Utc>,
     pub trigger: &'a Trigger,
+    /// Images attached to the triggering message or the message it replies to.
+    pub images: &'a [ImageInput],
     pub attachments: &'a mut Vec<Attachment>,
 }
 

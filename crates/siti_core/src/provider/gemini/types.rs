@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use base64::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Native Gemini API client, used for image generation.
@@ -50,13 +51,30 @@ pub struct Content {
 
 #[derive(Serialize, Debug)]
 pub struct Part {
-    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "inlineData")]
+    pub inline_data: Option<InlineDataRequest>,
 }
 
 impl Part {
     pub fn text(text: &str) -> Self {
-        Self { text: text.into() }
+        Self { text: Some(text.into()), inline_data: None }
     }
+
+    pub fn inline_data(mime_type: &str, data: &[u8]) -> Self {
+        Self {
+            text: None,
+            inline_data: Some(InlineDataRequest { mime_type: mime_type.into(), data: BASE64_STANDARD.encode(data) }),
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+pub struct InlineDataRequest {
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    pub data: String,
 }
 
 #[derive(Serialize, Debug)]

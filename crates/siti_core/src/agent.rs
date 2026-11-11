@@ -155,6 +155,7 @@ impl Agent {
                     timezone,
                     now: Utc::now(),
                     trigger: &req.trigger,
+                    images: &req.images,
                     attachments: &mut attachments,
                 };
                 let result = self.tools.execute(&call.name, &call.arguments, &mut ctx).await;
@@ -180,9 +181,9 @@ impl Agent {
             .unwrap_or(self.default_timezone))
     }
 
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
+    pub async fn generate_image(&self, prompt: &str, images: &[ImageInput]) -> Result<Vec<u8>, SitiError> {
         match self.tools.image() {
-            Some(image) => image.generate_image(prompt).await,
+            Some(image) => image.generate_image(prompt, images).await,
             None => Err(SitiError::Config("image generation is not configured".into())),
         }
     }

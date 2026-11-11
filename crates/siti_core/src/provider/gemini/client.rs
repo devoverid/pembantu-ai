@@ -1,19 +1,22 @@
 use base64::prelude::*;
 
 use crate::{
+    agent::ImageInput,
     error::SitiError,
     provider::gemini::types::{Content, GeminiAPI, GenerateContent, GenerateContentResponse, GenerationConfig, Modality, Part, Role},
 };
 
 impl GeminiAPI {
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
+    pub async fn generate_image(&self, prompt: &str, images: &[ImageInput]) -> Result<Vec<u8>, SitiError> {
+        let mut parts: Vec<Part> = images.iter().map(|image| Part::inline_data(&image.mime, &image.bytes)).collect();
+        parts.push(Part::text(prompt));
         let body = GenerateContent {
             generation_config: Some(GenerationConfig {
                 response_modalities: vec![Modality::Image, Modality::Text],
             }),
             contents: vec![Content {
                 role: Role::User,
-                parts: vec![Part::text(prompt)],
+                parts,
             }],
         };
         let response = self

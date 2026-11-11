@@ -1,7 +1,7 @@
 pub mod gemini;
 pub mod openrouter;
 
-use crate::error::SitiError;
+use crate::{agent::ImageInput, error::SitiError};
 use gemini::types::GeminiAPI;
 use openrouter::OpenRouterImageAPI;
 
@@ -13,10 +13,11 @@ pub enum ImageProvider {
 }
 
 impl ImageProvider {
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
+    /// Generates an image from `prompt`; non-empty `images` are sent as references to edit.
+    pub async fn generate_image(&self, prompt: &str, images: &[ImageInput]) -> Result<Vec<u8>, SitiError> {
         match self {
-            ImageProvider::Gemini(api) => api.generate_image(prompt).await,
-            ImageProvider::OpenRouter(api) => api.generate_image(prompt).await,
+            ImageProvider::Gemini(api) => api.generate_image(prompt, images).await,
+            ImageProvider::OpenRouter(api) => api.generate_image(prompt, images).await,
         }
     }
 }

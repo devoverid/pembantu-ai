@@ -3,7 +3,7 @@ use std::time::Duration;
 use base64::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::error::SitiError;
+use crate::{agent::ImageInput, error::SitiError};
 
 /// OpenRouter's dedicated Image API (`POST /api/v1/images`), used for image generation.
 #[derive(Clone)]
@@ -17,6 +17,19 @@ pub struct OpenRouterImageAPI {
 struct ImageRequest<'a> {
     model: &'a str,
     prompt: &'a str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    input_references: Vec<InputReference>,
+}
+
+#[derive(Serialize)]
+struct InputReference {
+    r#type: &'static str,
+    image_url: ImageUrl,
+}
+
+#[derive(Serialize)]
+struct ImageUrl {
+    url: String,
 }
 
 #[derive(Deserialize)]
@@ -42,12 +55,19 @@ impl OpenRouterImageAPI {
         }
     }
 
-    pub async fn generate_image(&self, prompt: &str) -> Result<Vec<u8>, SitiError> {
+    pub async fn generate_image(&self, prompt: &str, images: &[ImageInput]) -> Result<Vec<u8>, SitiError> {
+        let input_references = images
+            .iter()
+            .map(|image| InputReference {
+                r#type: "image_url",
+                image_url: ImageUrl { url: format!("data:{};base64,{}", image.mime, BASE64_STANDARD.encode(&image.bytes)) },
+            })
+            .collect();
         let response = self
             .client
             .post("https://openrouter.ai/api/v1/images")
             .bearer_auth(&self.api_key)
-            .json(&ImageRequest { model: &self.model, prompt })
+            .json(&ImageRequest { model: &self.model, prompt, input_references })
             .send()
             .await?;
         let status = response.status();

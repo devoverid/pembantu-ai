@@ -117,8 +117,8 @@ pub fn help(lang: Lang) -> &'static str {
 
 pub fn usage_image(lang: Lang) -> &'static str {
     match lang {
-        Lang::Id => "Cara pakai: /image <deskripsi gambar>",
-        Lang::En => "Usage: /image <image description>",
+        Lang::Id => "Cara pakai: /image <deskripsi gambar>\nUntuk mengedit, kirim /image sebagai caption foto atau balas sebuah foto.",
+        Lang::En => "Usage: /image <image description>\nTo edit, send /image as a photo caption or reply to a photo.",
     }
 }
 

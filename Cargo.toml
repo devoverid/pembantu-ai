@@ -4,6 +4,7 @@ members = [
     "crates/siti_telegram",
     "crates/siti_core",
     "crates/siti_whatsapp",
+    "crates/siti_api",
 ]
 
 [workspace.dependencies]

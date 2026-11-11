@@ -3,6 +3,18 @@ name = "siti_whatsapp"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+axum = { version = "0.8", features = ["json"] }
+chrono = "0.4"
+chrono-tz = "0.10"
+dotenvy = "0.15"
+envy = "0.4.2"
+log = { workspace = true }
+pretty_env_logger = "0.4"
+reqwest = { version = "0.13", features = ["json"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+siti_core = { path = "../siti_core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net"] }
+uuid = { version = "1", features = ["v4"] }

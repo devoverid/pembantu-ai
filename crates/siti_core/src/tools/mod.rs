@@ -21,7 +21,7 @@ use crate::{
     agent::{Attachment, ChatInfo, Trigger, UserInfo},
     db::PgPool,
     error::SitiError,
-    provider::gemini::types::GeminiAPI,
+    provider::ImageProvider,
     truncate_chars,
 };
 
@@ -39,15 +39,15 @@ pub struct ToolContext<'a> {
 
 pub struct Tools {
     search: Option<TavilyClient>,
-    image: Option<GeminiAPI>,
+    image: Option<ImageProvider>,
 }
 
 impl Tools {
-    pub fn new(search: Option<TavilyClient>, image: Option<GeminiAPI>) -> Self {
+    pub fn new(search: Option<TavilyClient>, image: Option<ImageProvider>) -> Self {
         Self { search, image }
     }
 
-    pub fn image(&self) -> Option<&GeminiAPI> {
+    pub fn image(&self) -> Option<&ImageProvider> {
         self.image.as_ref()
     }
 

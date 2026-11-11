@@ -9,7 +9,7 @@ use crate::{
     error::SitiError,
     llm::{AssistantReply, LlmClient},
     prompt::{detect_language, system_prompt, PromptContext, ReplyLanguage},
-    provider::gemini::types::GeminiAPI,
+    provider::ImageProvider,
     tools::{web::TavilyClient, ToolContext, Tools},
     truncate_chars,
 };
@@ -91,7 +91,7 @@ impl Agent {
         db: PgPool,
         llm: LlmClient,
         search: Option<TavilyClient>,
-        image: Option<GeminiAPI>,
+        image: Option<ImageProvider>,
         default_timezone: chrono_tz::Tz,
     ) -> Self {
         Self { db, llm, tools: Tools::new(search, image), default_timezone }

@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_USER: pembantu
-      POSTGRES_PASSWORD: pembantu
-      POSTGRES_DB: pembantu
+      POSTGRES_USER: siti
+      POSTGRES_PASSWORD: siti
+      POSTGRES_DB: siti
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pembantu"]
+      test: ["CMD-SHELL", "pg_isready -U siti"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,7 +19,7 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgres://pembantu:pembantu@db:5432/pembantu
+      DATABASE_URL: postgres://siti:siti@db:5432/siti
     depends_on:
       db:
         condition: service_healthy
